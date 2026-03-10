@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Geodesic Explorer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.27.0/plotly.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,300;0,400;1,300;1,400&family=JetBrains+Mono:wght@300;400&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:      #f7f5f0;
+    --surface: #eeeae1;
+    --border:  #d4cfc4;
+    --text:    #2c2a25;
+    --muted:   #7a7060;
+    --accent:  #4a6fa5;
+    --accent2: #b85c38;
+    --mono:    'JetBrains Mono', monospace;
+    --serif:   'Crimson Pro', Georgia, serif;
+  }
+
+  body {
+    font-family: var(--serif);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 15px;
+    line-height: 1.6;
+    padding: 1rem 1.2rem;
+  }
+
+  h2 {
+    font-size: 0.75rem;
+    font-weight: 400;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 0.7rem;
+    font-family: var(--mono);
+  }
+
+  .applet {
+    display: grid;
+    grid-template-columns: 1fr 210px;
+    gap: 1rem;
+    max-width: 900px;
+    margin: 0 auto;
+    align-items: start;
+  }
+
+  .plot-wrap {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .stat-label.frac {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    line-height: 1.2;
+    gap: 0;
+    border-left: 1px solid currentColor;  /* or use a middle border for a true fraction bar */
+  }
+  .stat-label.frac span:first-child {
+    border-bottom: 1px solid currentColor;
+    padding-bottom: 1px;
+  }
+
+  #plot-traj { height: 420px; }
+
+  .cbar-wrap {
+    margin-top: 0.5rem;
+    padding: 0.4rem 0.7rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-family: var(--mono);
+    font-size: 0.62rem;
+    color: var(--muted);
+  }
+  .cbar { height: 7px; flex: 1; border-radius: 3px; }
+
+  .stats-bar {
+    display: flex;
+    gap: 0.6rem;
+    margin-top: 0.5rem;
+    padding: 0.5rem 0.7rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    color: var(--muted);
+  }
+
+  .stats-section { flex: 1; display: flex; flex-direction: column; gap: 0.25rem; }
+  .stats-section-title {
+    font-size: 0.58rem; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--muted); border-bottom: 1px solid var(--border);
+    padding-bottom: 0.2rem; margin-bottom: 0.15rem;
+  }
+  .stats-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    row-gap: 0.15rem;
+    column-gap: 0.4rem;
+    align-items: baseline;
+  }
+  .stats-divider { width: 1px; background: var(--border); margin: 0 0.1rem; }
+
+  .stat-label { font-size: 0.6rem; color: var(--muted); white-space: nowrap; }
+  .stat-value { color: var(--text); font-size: 0.7rem; text-align: right; }
+  .stat-value.warn { color: var(--accent2); }
+
+  /* Controls — tighter to avoid overflow */
+  .controls { display: flex; flex-direction: column; gap: 0.5rem; }
+
+  .ctrl-group {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 0.45rem 0.65rem;
+  }
+
+  .ctrl-group-title {
+    font-family: var(--mono);
+    font-size: 0.55rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 0.35rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0.2rem;
+  }
+
+  .ctrl-row { display: flex; flex-direction: column; margin-bottom: 0.3rem; }
+  .ctrl-row:last-child { margin-bottom: 0; }
+
+  .ctrl-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 0.1rem;
+  }
+
+  .ctrl-label { font-family: var(--mono); font-size: 0.7rem; color: var(--text); }
+  .ctrl-val   { font-family: var(--mono); font-size: 0.66rem; color: var(--accent); min-width: 3.2em; text-align: right; }
+
+  input[type=range] {
+    -webkit-appearance: none; appearance: none;
+    width: 100%; height: 3px;
+    background: var(--border); border-radius: 2px;
+    outline: none; cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 11px; height: 11px; border-radius: 50%;
+    background: var(--accent); cursor: pointer; transition: background 0.15s;
+  }
+  input[type=range]:hover::-webkit-slider-thumb { background: var(--accent2); }
+  input[type=range]::-moz-range-thumb {
+    width: 11px; height: 11px; border-radius: 50%;
+    background: var(--accent); border: none; cursor: pointer;
+  }
+
+  .btn-reset {
+    width: 100%; padding: 0.4rem;
+    font-family: var(--mono); font-size: 0.66rem;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    background: transparent; border: 1px solid var(--border);
+    border-radius: 3px; color: var(--muted);
+    cursor: pointer; transition: border-color 0.15s, color 0.15s;
+  }
+  .btn-reset:hover { border-color: var(--accent2); color: var(--accent2); }
+
+  @media (max-width: 600px) {
+    .applet { grid-template-columns: 1fr; }
+    #plot-traj { height: 320px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="applet">
+  <div>
+    <div class="plot-wrap">
+      <div id="plot-traj"></div>
+    </div>
+
+    <div class="cbar-wrap">
+      <span id="cbar-min">—</span>
+      <div class="cbar" id="cbar-grad"></div>
+      <span id="cbar-max">—</span>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="ctrl-group">
+      <div class="ctrl-group-title">Metric</div>
+      <div class="ctrl-row">
+        <div class="ctrl-header">
+          <span class="ctrl-label">α (alpha)</span>
+          <span class="ctrl-val" id="val-alpha">1.00</span>
+        </div>
+        <input type="range" id="sl-alpha" min="-3" max="3" step="0.05" value="1">
+      </div>
+      <div class="ctrl-row">
+        <div class="ctrl-header">
+          <span class="ctrl-label">β (beta)</span>
+          <span class="ctrl-val" id="val-beta">3.00</span>
+        </div>
+        <input type="range" id="sl-beta" min="0" max="5" step="0.05" value="3">
+      </div>
+    </div>
+
+    <div class="ctrl-group">
+      <div class="ctrl-group-title">Initial position</div>
+      <div class="ctrl-row">
+        <div class="ctrl-header">
+          <span class="ctrl-label">x¹(0)</span>
+          <span class="ctrl-val" id="val-x1_0">−5.00</span>
+        </div>
+        <input type="range" id="sl-x1_0" min="-5" max="5" step="0.1" value="-5">
+      </div>
+      <div class="ctrl-row">
+        <div class="ctrl-header">
+          <span class="ctrl-label">x²(0)</span>
+          <span class="ctrl-val" id="val-x2_0">−5.00</span>
+        </div>
+        <input type="range" id="sl-x2_0" min="-5" max="5" step="0.1" value="-5">
+      </div>
+    </div>
+
+    <div class="ctrl-group">
+      <div class="ctrl-group-title">Initial velocity</div>
+      <div class="ctrl-row">
+        <div class="ctrl-header">
+          <span class="ctrl-label">ẋ¹(0)</span>
+          <span class="ctrl-val" id="val-v1_0">1.00</span>
+        </div>
+        <input type="range" id="sl-v1_0" min="-3" max="3" step="0.05" value="1">
+      </div>
+      <div class="ctrl-row">
+        <div class="ctrl-header">
+          <span class="ctrl-label">ẋ²(0)</span>
+          <span class="ctrl-val" id="val-v2_0">1.00</span>
+        </div>
+        <input type="range" id="sl-v2_0" min="-3" max="3" step="0.05" value="1">
+      </div>
+    </div>
+
+    <div class="ctrl-group">
+      <div class="ctrl-group-title">Integration</div>
+      <div class="ctrl-row">
+        <div class="ctrl-header">
+          <span class="ctrl-label">t max</span>
+          <span class="ctrl-val" id="val-tmax">15</span>
+        </div>
+        <input type="range" id="sl-tmax" min="1" max="20" step=".1" value="10">
+      </div>
+    </div>
+
+    <div class="stats-bar">
+      <div class="stats-section">
+        <div class="stats-section-title">Angles</div>
+        <div class="stats-grid">
+          <span class="stat-label">θ_i</span><span class="stat-value" id="stat-ang0">—</span>
+          <span class="stat-label">θ_f</span><span class="stat-value" id="stat-ang1">—</span>
+		  <span class="stat-label frac"> <span>sin θ_f</span><span>sin θ_i</span></span><span class="stat-value" id="stat-sinratio">—</span>
+        </div>
+      </div>
+      <div class="stats-divider"></div>
+      <div class="stats-section">
+        <div class="stats-section-title">Metric factor Ω</div>
+        <div class="stats-grid">
+          <span class="stat-label">Ω_i</span><span class="stat-value" id="stat-om0">—</span>
+          <span class="stat-label">Ω_f</span><span class="stat-value" id="stat-om1">—</span>
+		  <span class="stat-label frac"> <span>Ω_i</span><span>Ω_f</span></span><span class="stat-value" id="stat-omratio">—</span>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn-reset" id="btn-reset">↺ Reset defaults</button>
+  </div>
+</div>
+
+<script>
+// ── Physics ───────────────────────────────────────────────────────────────────
+
+function omega(x1, alpha, beta) {
+  return 1 + (alpha / 2) * (Math.tanh(beta * x1) + 1);
+}
+
+function rhs(state, alpha, beta) {
+  const [x1, , v1, v2] = state;
+  const th    = Math.tanh(beta * x1);
+  const ch    = Math.cosh(beta * x1);
+  const denom = (alpha * th + alpha + 2) * ch * ch;
+  if (Math.abs(denom) < 1e-12) return [v1, state[1], 0, 0];
+  const G = (alpha * beta) / (2 * denom);
+  return [v1, v2, -G*(v1*v1 - v2*v2), -2*G*v1*v2];
+}
+
+function rk4Step(state, dt, alpha, beta) {
+  const k1 = rhs(state, alpha, beta);
+  const k2 = rhs(state.map((s,i) => s + 0.5*dt*k1[i]), alpha, beta);
+  const k3 = rhs(state.map((s,i) => s + 0.5*dt*k2[i]), alpha, beta);
+  const k4 = rhs(state.map((s,i) => s +    dt*k3[i]), alpha, beta);
+  return state.map((s,i) => s + (dt/6)*(k1[i]+2*k2[i]+2*k3[i]+k4[i]));
+}
+
+function solve(x1_0, x2_0, v1_0, v2_0, alpha, beta, tMax) {
+  const dt    = 0.02;
+  const steps = Math.ceil(tMax / dt);
+  const X1=[x1_0], X2=[x2_0];
+  let state=[x1_0, x2_0, v1_0, v2_0], ok=true;
+  for (let i=0; i<steps; i++) {
+    state = rk4Step(state, dt, alpha, beta);
+    if (!state.every(isFinite)) { ok=false; break; }
+    X1.push(state[0]); X2.push(state[1]);
+  }
+  return { X1, X2, ok, finalVel: [state[2], state[3]] };
+}
+
+// ── Color scale: warm cream → deep slate (low Ω → high Ω) ────────────────────
+// Used for both the background heatmap and the colorbar legend.
+// Returns [r,g,b] arrays suitable for Plotly colorscale entries.
+const CS_LOW  = [245, 238, 220];   // warm cream
+const CS_HIGH = [ 58,  90, 138];   // deep slate blue
+
+function lerpColor(t) {
+  return CS_LOW.map((lo, i) => Math.round(lo + (CS_HIGH[i] - lo) * t));
+}
+function rgbStr(t) { const [r,g,b] = lerpColor(t); return `rgb(${r},${g},${b})`; }
+
+// Plotly colorscale format: array of [t, 'rgb(...)'] pairs
+const PLOTLY_COLORSCALE = Array.from({length:11}, (_,i) => {
+  const t = i/10;
+  return [t, rgbStr(t)];
+});
+
+// CSS gradient for colorbar strip
+document.getElementById('cbar-grad').style.background = (() => {
+  const stops = Array.from({length:9}, (_,i) => {
+    const t = i/8;
+    return `${rgbStr(t)} ${Math.round(t*100)}%`;
+  });
+  return `linear-gradient(to right, ${stops.join(', ')})`;
+})();
+
+// ── Background heatmap: Ω(x¹) as vertical stripes ────────────────────────────
+// Resolution: N columns across AXIS_RANGE, 2 rows (top/bottom) — enough for
+// a smooth gradient since Ω only varies with x¹.
+const AXIS_RANGE = [-6.5, 6.5];
+const HM_COLS = 120;
+const hm_x = Array.from({length: HM_COLS}, (_,i) =>
+  AXIS_RANGE[0] + (i / (HM_COLS-1)) * (AXIS_RANGE[1] - AXIS_RANGE[0]));
+const hm_y = [AXIS_RANGE[0], AXIS_RANGE[1]];
+
+// heatmap z is 2 rows × HM_COLS cols; both rows identical (purely x¹-dependent)
+function buildHeatmapZ(alpha, beta) {
+  const row = hm_x.map(x => omega(x, alpha, beta));
+  return [row, row];
+}
+
+const GRID = 'rgba(255,255,255,0.25)', ZERO = 'rgba(255,255,255,0.5)', FONT = '#4a4035';
+
+function makeLayout() {
+  return {
+    paper_bgcolor: '#ffffff',
+    plot_bgcolor:  '#ffffff',
+    margin: { l: 42, r: 14, t: 14, b: 42 },
+    font:   { family: "'JetBrains Mono', monospace", size: 10, color: FONT },
+    xaxis: {
+      range: AXIS_RANGE,
+      gridcolor: GRID, zerolinecolor: ZERO, zerolinewidth: 1.5,
+      linecolor: 'rgba(0,0,0,0.15)',
+      title: { text: "x¹", standoff: 6 },
+      scaleanchor: 'y', scaleratio: 1,
+      fixedrange: true,
+    },
+    yaxis: {
+      range: AXIS_RANGE,
+      gridcolor: GRID, zerolinecolor: ZERO, zerolinewidth: 1.5,
+      linecolor: 'rgba(0,0,0,0.15)',
+      title: { text: "x²", standoff: 6 },
+      fixedrange: true,
+    },
+    showlegend: false,
+    shapes: [{
+      type: 'line',
+      x0: 0, x1: 0, y0: AXIS_RANGE[0], y1: AXIS_RANGE[1],
+      line: { color: 'rgba(0,0,0,0.7)', width: 1.2, dash: 'dot' },
+      layer: 'above',
+    }],
+    annotations: [{
+      x: 0.15, y: AXIS_RANGE[1] * 0.93,
+      xref: 'x', yref: 'y',
+      text: 'x¹ = 0', showarrow: false,
+      font: { size: 8.5, color: 'rgba(0,0,0,0.6)',
+              family: "'JetBrains Mono', monospace" },
+    }],
+  };
+}
+
+Plotly.newPlot('plot-traj', [], makeLayout(),
+  { displayModeBar: false, responsive: true, scrollZoom: false });
+
+// ── Sliders ───────────────────────────────────────────────────────────────────
+const DEFAULTS = { alpha:2, beta:3, x1_0:-5, x2_0:-5, v1_0:1, v2_0:1, tmax:10 };
+const keys = Object.keys(DEFAULTS);
+
+function getParams() {
+  return Object.fromEntries(keys.map(k =>
+    [k, parseFloat(document.getElementById('sl-'+k).value)]));
+}
+
+function fmt(v) { return (v >= 0 ? '\u2009' : '') + v.toFixed(2); }
+
+// ── Redraw ────────────────────────────────────────────────────────────────────
+function redraw() {
+  const p = getParams();
+  keys.forEach(k => document.getElementById('val-'+k).textContent = fmt(p[k]));
+
+  const { X1, X2, ok, finalVel } =
+    solve(p.x1_0, p.x2_0, p.v1_0, p.v2_0, p.alpha, p.beta, p.tmax);
+
+  const n = X1.length;
+
+  // ── Traces ──
+  const traces = [];
+
+  // 1. Background heatmap — Ω(x¹), colorscale normalised to its own min/max
+  const hmZ = buildHeatmapZ(p.alpha, p.beta);
+  traces.push({
+    type: 'heatmap',
+    x: hm_x, y: hm_y, z: hmZ,
+    colorscale: PLOTLY_COLORSCALE,
+    showscale: false,
+    hoverinfo: 'skip',
+    zsmooth: 'best',
+  });
+
+  // 2. Trajectory — single clean line on top
+  traces.push({
+    x: X1, y: X2,
+    mode: 'lines',
+    line: { color: 'rgba(0,0,0,0.92)', width: 2.2 },
+    hoverinfo: 'skip',
+  });
+
+  // 3. Start marker
+  traces.push({
+    x: [X1[0]], y: [X2[0]],
+    mode: 'markers',
+    marker: { color: '#f0a070', size: 9, symbol: 'circle',
+              line: { color: 'white', width: 1.5 } },
+    hovertemplate: 'start<extra></extra>',
+  });
+
+  // 4. End marker
+  traces.push({
+    x: [X1[n-1]], y: [X2[n-1]],
+    mode: 'markers',
+    marker: { color: '#70d4a8', size: 9, symbol: 'circle',
+              line: { color: 'white', width: 1.5 } },
+    hovertemplate: 'end<extra></extra>',
+  });
+
+  Plotly.react('plot-traj', traces, makeLayout(),
+    { displayModeBar: false, responsive: true, scrollZoom: false });
+
+  // ── Angle & omega stats ──
+  const angI = Math.atan2(p.v2_0,      p.v1_0)      * 180 / Math.PI;
+  const angF = Math.atan2(finalVel[1], finalVel[0]) * 180 / Math.PI;
+
+  const sinI = Math.sin(angI * Math.PI / 180);
+  const sinF = Math.sin(angF * Math.PI / 180);
+  const sinRatio = Math.abs(sinI) > 1e-6 ? (sinF / sinI).toFixed(4) : '∞';
+
+  const omI = omega(X1[0],   p.alpha, p.beta);
+  const omF = omega(X1[n-1], p.alpha, p.beta);
+  const omRatio = Math.abs(omF) > 1e-6 ? Math.sqrt(omI / omF).toFixed(4) : '∞';
+
+  // colorbar extremes: Ω over the full visible x¹ range
+  const omAll = hm_x.map(x => omega(x, p.alpha, p.beta));
+  const omMin = Math.min(...omAll), omMax = Math.max(...omAll);
+
+  document.getElementById('stat-ang0').textContent    = angI.toFixed(2) + '°';
+  document.getElementById('stat-ang1').textContent    = angF.toFixed(2) + '°';
+  document.getElementById('stat-sinratio').textContent = sinRatio;
+  document.getElementById('stat-om0').textContent     = omI.toFixed(4);
+  document.getElementById('stat-om1').textContent     = omF.toFixed(4);
+  document.getElementById('stat-omratio').textContent = omRatio;
+  document.getElementById('cbar-min').textContent     = omMin.toFixed(2);
+  document.getElementById('cbar-max').textContent     = omMax.toFixed(2);
+
+  const stEl = document.getElementById('stat-status');
+  if (stEl) { stEl.textContent = ok ? n : '⚠ diverged'; stEl.className = 'stat-value' + (ok ? '' : ' warn'); }
+}
+
+keys.forEach(k =>
+  document.getElementById('sl-'+k).addEventListener('input', redraw));
+
+document.getElementById('btn-reset').addEventListener('click', () => {
+  keys.forEach(k => { document.getElementById('sl-'+k).value = DEFAULTS[k]; });
+  redraw();
+});
+
+redraw();
+</script>
+</body>
+</html>
