@@ -151,10 +151,18 @@ It turns out, then, that
 where the conformal factor is taken to measure the "cost" of moving through a medium.
 You can check the match between the two ratios in the applet above, at the bottom of the right hand panel.
 
-What is really quite interesting is what happens when you set $\alpha < -0.5$.
+What is really quite interesting is what happens when you set $\alpha < -0.5$ and the initial velocity to have both components positive and equal.
 It almost looks like reflection!
-I have yet to get an intuition as to why this is the case.
-For $\alpha < -2$, the conformal factor breaks down completely, and I guess in that regime we are in proper reflection territory.
-But this is all a bit foggy right now, I will hopefully come back to it in the future with a clearer understanding.
+Why is that?
+For $\alpha = -1/2$, in those conditions, we have that to the right of the interface (in the approximation where $\beta\gg 1$) the conformal factor becomes $\Omega = \sqrt{1/2}$.
+So we have $\sin\theta_i = \sqrt{1/2}$ and $\Omega_f/\Omega_i = \sqrt{1/2}$, and so it must be that $\sin\theta_f = 1$.
+This means that the light just moves parallel to the interface.
+*We have just rediscovered [total internal refraction](https://en.wikipedia.org/wiki/Total_internal_reflection)*, the mechanism behind, among other things, fiber optics.
+In this case, in fact, the left hand side has higher refractive index than the right hand side, and it would be like the glass of fiber optics.
+
+For $\alpha < -2$, the conformal factor breaks down completely, becoming imaginary.
+Maybe this also has a physical interpretation after all, but it feels like it is something a bit more exotic.
+A bit of creativity may allow an interesting characterization of this regime.
+Hopefully an idea will pop up in the future.
 
 Please contact me if you have a deeper understanding of this, beyond my handwavy reasoning here!
