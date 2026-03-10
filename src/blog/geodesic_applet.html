@@ -484,9 +484,9 @@ function redraw() {
   const sinF = Math.sin(angF * Math.PI / 180);
   const sinRatio = Math.abs(sinI) > 1e-6 ? (sinF / sinI).toFixed(4) : '∞';
 
-  const omI = omega(X1[0],   p.alpha, p.beta);
-  const omF = omega(X1[n-1], p.alpha, p.beta);
-  const omRatio = Math.abs(omF) > 1e-6 ? Math.sqrt(omI / omF).toFixed(4) : '∞';
+  const omI = Math.sqrt(omega(X1[0],   p.alpha, p.beta));
+  const omF = Math.sqrt(omega(X1[n-1], p.alpha, p.beta));
+  const omRatio = Math.abs(omF) > 1e-6 ? (omI / omF).toFixed(4) : '∞';
 
   // colorbar extremes: Ω over the full visible x¹ range
   const omAll = hm_x.map(x => omega(x, p.alpha, p.beta));
