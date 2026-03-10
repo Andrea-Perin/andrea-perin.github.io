@@ -136,9 +136,8 @@ and sub those in the geodesic equations, we get
 \end{align}
 
 These ugly ODEs can only be solved numerically.
-It is not too hard to do so a package like `scipy`.
-I leave a link here to a repo where you can find a minimal Python snippet of code that produces an interactive applet like the one above (which is running inside your browser).
-
+It is not too hard to do so using a package like `scipy`.
+However, you can also just play around with the applet above.
 
 ### Interpreting the result
 
@@ -151,5 +150,11 @@ It turns out, then, that
 \end{align}
 where the conformal factor is taken to measure the "cost" of moving through a medium.
 You can check the match between the two ratios in the applet above, at the bottom of the right hand panel.
+
+What is really quite interesting is what happens when you set $\alpha < -0.5$.
+It almost looks like reflection!
+I have yet to get an intuition as to why this is the case.
+For $\alpha < -2$, the conformal factor breaks down completely, and I guess in that regime we are in proper reflection territory.
+But this is all a bit foggy right now, I will hopefully come back to it in the future with a clearer understanding.
 
 Please contact me if you have a deeper understanding of this, beyond my handwavy reasoning here!
