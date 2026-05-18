@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OU Explorer</title>
+<style>
+  :root {
+    --bg:      #f7f5f0;
+    --surface: #eeeae1;
+    --border:  #d4cfc4;
+    --text:    #2c2a25;
+    --muted:   #7a7060;
+    --accent:  #4a6fa5;
+    --accent2: #b85c38;
+    --fwd:     #4a6fa5;
+    --rev:     #b85c38;
+    --ellipse: #3a7d44;
+    --font:    'DM Mono', 'Courier New', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 11px;
+    width: 600px;
+    overflow: hidden;
+  }
+
+  /* ── Canvas ── */
+  #canvas-wrap {
+    width: 600px;
+    height: 320px;
+    position: relative;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    cursor: crosshair;
+  }
+  canvas { display: block; }
+  #canvas-wrap::after {
+    content: 'scroll to zoom';
+    position: absolute;
+    bottom: 6px; right: 8px;
+    font-size: 9px;
+    color: var(--muted);
+    pointer-events: none;
+  }
+
+  /* ── Stats strip ── */
+  #stats {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0px 10px;
+    display: flex;
+	position: relative;
+    z-index: 1;
+  }
+  .stat-cell {
+    flex: 1;
+    border-right: 1px solid var(--border);
+    padding: 0 8px;
+  }
+  .stat-cell:first-child { padding-left: 0; }
+  .stat-cell:last-child  { border-right: none; }
+  .stat-key { color: var(--muted); font-size: 9px; letter-spacing: .06em; text-transform: uppercase; }
+  .stat-val { color: var(--accent); font-size: 12px; margin-top: 1px; }
+
+  /* ── Controls ── */
+  #controls {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+
+  /* Row 1: preset dropdown + action buttons */
+  #row-preset {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* Row 2: matrix on the left, slider grid on the right */
+  #row-main {
+    display: flex;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  /* ── Matrix block ── */
+  .mat-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    flex-shrink: 0;
+  }
+  .mat-label {
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    align-self: flex-start;
+  }
+  .mat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+    flex: 1;
+  }
+  .mat-grid input[type=number] {
+    width: 46px;
+    background: var(--bg);
+    border: none;
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 11px;
+    text-align: center;
+    width: 100%;
+    height: 100%;
+    min-height: 22px;
+    -webkit-appearance: textfield;
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+  .mat-grid input[type=number]::-webkit-inner-spin-button,
+  .mat-grid input[type=number]::-webkit-outer-spin-button { display: none; }
+  .mat-grid input:nth-child(2n) { border-right: none; }
+  .mat-grid input:nth-child(3),
+  .mat-grid input:nth-child(4) { border-bottom: none; }
+  .mat-grid input[type=number]:focus { outline: none; background: #ede8de; }
+
+  /* ── Slider grid ── */
+  .slider-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .slider-label {
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: .05em;
+    text-transform: uppercase;
+  }
+  .slider-grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    grid-template-rows: 1fr 1fr 1fr 1fr;
+    align-items: center;
+    column-gap: 6px;
+    row-gap: 3px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    background: var(--bg);
+    padding: 5px 8px;
+  }
+  .slider-grid .sl-name {
+    font-size: 10px;
+    color: var(--muted);
+    white-space: nowrap;
+    font-style: italic;
+  }
+  .slider-grid input[type=range] {
+    width: 100%;
+    accent-color: var(--accent);
+    cursor: pointer;
+    min-width: 0;
+  }
+  .slider-grid .sl-val {
+    font-size: 10px;
+    color: var(--text);
+    text-align: right;
+    white-space: nowrap;
+    min-width: 3.2em;
+  }
+
+  /* Row 3: visibility toggles, centered */
+  #row-toggles {
+    display: flex;
+    justify-content: center;
+    gap: 5px;
+    flex-wrap: wrap;
+  }
+
+  /* ── Shared elements ── */
+  .ctrl-label {
+    color: var(--muted);
+    white-space: nowrap;
+    font-size: 10px;
+  }
+
+  select {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 10px;
+    padding: 3px 5px;
+    border-radius: 3px;
+    cursor: pointer;
+    flex: 1;
+    min-width: 0;
+  }
+  select:focus { outline: none; border-color: var(--accent); }
+
+  .btn {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 10px;
+    padding: 3px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: border-color .15s, background .15s;
+    flex-shrink: 0;
+  }
+  .btn:hover { border-color: var(--accent); background: var(--surface); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:hover { background: #3a5f94; }
+
+  /* Toggle pills */
+  .tog-pill {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: var(--font);
+    font-size: 9px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all .15s;
+    user-select: none;
+  }
+  .tog-pill.on                { border-color: var(--accent); color: var(--accent); background: #e8eef5; }
+  .tog-pill[data-for=fwd].on  { border-color: var(--fwd);     color: var(--fwd);     background: #e8eef5; }
+  .tog-pill[data-for=rev].on  { border-color: var(--rev);     color: var(--rev);     background: #f5ede8; }
+  .tog-pill[data-for=ell].on  { border-color: var(--ellipse); color: var(--ellipse); background: #e8f2ea; }
+  .tog-pill[data-for=emp].on  { border-color: var(--accent);  color: var(--accent);  background: #e8eef5; }
+  .tog-pill[data-for=cur].on  { border-color: #7a5ca0;        color: #7a5ca0;        background: #f0eaf5; }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<!-- ── Canvas ── -->
+<div id="canvas-wrap"><canvas id="c"></canvas></div>
+
+<!-- ── Stats strip ── -->
+<div id="stats">
+  <div class="stat-cell">
+    <div class="stat-key">e_p (analytical)</div>
+    <div class="stat-val" id="ep-display">—</div>
+  </div>
+  <div class="stat-cell">
+    <div class="stat-key">e_p (empirical)</div>
+    <div class="stat-val" id="ep-emp-display">—</div>
+  </div>
+  <div class="stat-cell">
+    <div class="stat-key">λ (rotation)</div>
+    <div class="stat-val" id="lambda-display">—</div>
+  </div>
+  <div class="stat-cell">
+    <div class="stat-key">s₁, s₂</div>
+    <div class="stat-val" id="s-display">—</div>
+  </div>
+  <div class="stat-cell">
+    <div class="stat-key">Hurwitz</div>
+    <div class="stat-val" id="hurwitz-display">—</div>
+  </div>
+</div>
+
+<!-- ── Controls ── -->
+<div id="controls">
+
+  <!-- Row 1: preset selector + action buttons -->
+  <div id="row-preset">
+    <span class="ctrl-label">preset&nbsp;</span>
+    <select id="preset-sel" onchange="loadPreset(this.value)">
+      <option value="equilibrium">Equilibrium  (B=0, e_p=0)</option>
+      <option value="pureRotation">Pure Rotation  (large B)</option>
+      <option value="aligned" selected>S,B commute  ([S,B]=0)</option>
+      <option value="misaligned">S,B misaligned  ([S,B]≠0)</option>
+      <option value="highNoise">High Noise  (σ=2.5)</option>
+    </select>
+    <button class="btn primary" onclick="resample()">Resample</button>
+    <button class="btn" id="pause-btn" onclick="togglePause()">Pause</button>
+  </div>
+
+  <!-- Row 2: matrix (left) + slider grid (right), matched height -->
+  <div id="row-main">
+
+    <div class="mat-section">
+      <span class="mat-label">A =</span>
+      <div class="mat-grid">
+        <input type="number" id="a11" value="-1"  step="0.1" onchange="onMatrixChange()">
+        <input type="number" id="a12" value="-2"  step="0.1" onchange="onMatrixChange()">
+        <input type="number" id="a21" value="2"   step="0.1" onchange="onMatrixChange()">
+        <input type="number" id="a22" value="-1"  step="0.1" onchange="onMatrixChange()">
+      </div>
+    </div>
+
+    <div class="slider-section">
+      <span class="slider-label">parameters</span>
+      <div class="slider-grid">
+        <span class="sl-name">σ</span>
+        <input type="range" id="sigma" min="0.1" max="3" step="0.05" value="1.0"
+               oninput="document.getElementById('sigma-val').textContent=parseFloat(this.value).toFixed(2); onParamChange()">
+        <span class="sl-val" id="sigma-val">1.00</span>
+
+        <!-- dt slider: value stored in log space; displayed as exp(value) -->
+        <span class="sl-name">dt</span>
+        <input type="range" id="dt"
+               min="-9.2103" max="-3.9120" step="0.05"
+               value="-6.2146"
+               oninput="document.getElementById('dt-val').textContent=Math.exp(parseFloat(this.value)).toFixed(4); onParamChange()">
+        <span class="sl-val" id="dt-val">0.0020</span>
+
+        <span class="sl-name">N</span>
+        <input type="range" id="npaths" min="1" max="80" step="1" value="25"
+               oninput="document.getElementById('npaths-val').textContent=this.value; onParamChange()">
+        <span class="sl-val" id="npaths-val">25</span>
+
+        <span class="sl-name">trail</span>
+        <input type="range" id="steps" min="20" max="400" step="10" value="150"
+               oninput="document.getElementById('steps-val').textContent=this.value; onParamChange()">
+        <span class="sl-val" id="steps-val">150</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Row 3: visibility toggles, centred -->
+  <div id="row-toggles">
+    <span class="tog-pill on" data-for="fwd"  onclick="toggleVis(this)">forward</span>
+    <span class="tog-pill on" data-for="rev"  onclick="toggleVis(this)">reverse</span>
+    <span class="tog-pill on" data-for="ell"  onclick="toggleVis(this)">Σ ellipse</span>
+    <span class="tog-pill"    data-for="emp"  onclick="toggleVis(this)">empirical cov</span>
+    <span class="tog-pill"    data-for="cur"  onclick="toggleVis(this)">current j(x)</span>
+  </div>
+
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// VIS STATE (toggles)
+// ═══════════════════════════════════════════════════════════════
+const vis = { fwd: true, rev: true, ell: true, emp: false, cur: false };
+
+function toggleVis(el) {
+  const k = el.dataset.for;
+  vis[k] = !vis[k];
+  el.classList.toggle('on', vis[k]);
+  redraw();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════
+const state = {
+  A: [[-1, -2], [2, -1]],
+  A_rev: null,
+  sigma: 1.0,
+  dt: 0.002,
+  nPaths: 25,
+  maxLen: 150,
+  fwdPaths: [], revPaths: [],
+  fwdHeads: [], revHeads: [],
+  Sigma: null,
+  M: null, LQ: null,
+  J: null,
+  M_r: null,
+  Q_inv: null, empCov: null,
+  welford: null,
+  epAcc: {n: 0, sum: 0},
+  paused: false,
+  rafId: null,
+};
+
+// ═══════════════════════════════════════════════════════════════
+// PRESETS
+// ═══════════════════════════════════════════════════════════════
+const PRESETS = {
+  equilibrium:  { A: [[-1, 0], [0, -2]],       sigma: 1.0 },
+  pureRotation: { A: [[-0.05, -2], [2, -0.05]],  sigma: 1.0 },
+  aligned:      { A: [[-1, -2], [2, -1]],       sigma: 1.0 },
+  misaligned:   { A: [[-2, -1.5], [1, -0.5]],  sigma: 1.0 },
+  highNoise:    { A: [[-1, -2], [2, -1]],       sigma: 2.5 },
+};
+
+function loadPreset(key) {
+  const p = PRESETS[key];
+  state.A = p.A.map(r => [...r]);
+  state.sigma = p.sigma;
+  document.getElementById('a11').value = p.A[0][0];
+  document.getElementById('a12').value = p.A[0][1];
+  document.getElementById('a21').value = p.A[1][0];
+  document.getElementById('a22').value = p.A[1][1];
+  document.getElementById('sigma').value = p.sigma;
+  document.getElementById('sigma-val').textContent = p.sigma.toFixed(2);
+  recompute();
+}
+
+function onMatrixChange() {
+  state.A = [
+    [parseFloat(document.getElementById('a11').value), parseFloat(document.getElementById('a12').value)],
+    [parseFloat(document.getElementById('a21').value), parseFloat(document.getElementById('a22').value)],
+  ];
+  document.getElementById('preset-sel').value = '';
+  recompute();
+}
+
+function onParamChange() {
+  state.sigma  = parseFloat(document.getElementById('sigma').value);
+  // dt is stored in log space on the slider
+  state.dt     = Math.exp(parseFloat(document.getElementById('dt').value));
+  state.nPaths = parseInt(document.getElementById('npaths').value);
+  state.maxLen = parseInt(document.getElementById('steps').value);
+  recompute();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MATH
+// ═══════════════════════════════════════════════════════════════
+function w_matvec(A, x, dt) {
+  return [(A[0][0]*x[0]+A[0][1]*x[1])*dt, (A[1][0]*x[0]+A[1][1]*x[1])*dt];
+}
+function invert2x2(S) {
+  const det = S[0][0]*S[1][1] - S[0][1]*S[0][1];
+  if (Math.abs(det) < 1e-14) throw new Error("singular");
+  const inv = 1/det;
+  return [[S[1][1]*inv, -S[0][1]*inv], [-S[0][1]*inv, S[0][0]*inv]];
+}
+function cholesky2x2(S) {
+  const l00 = Math.sqrt(S[0][0]);
+  if (l00 === 0) return [[0,0],[0,Math.sqrt(S[1][1])]];
+  const l10 = S[0][1]/l00;
+  return [[l00,0],[l10, Math.sqrt(Math.max(0, S[1][1]-l10*l10))]];
+}
+function transpose(X) { return [[X[0][0],X[1][0]],[X[0][1],X[1][1]]]; }
+function matmul(A, B) {
+  return [
+    [A[0][0]*B[0][0]+A[0][1]*B[1][0], A[0][0]*B[0][1]+A[0][1]*B[1][1]],
+    [A[1][0]*B[0][0]+A[1][1]*B[1][0], A[1][0]*B[0][1]+A[1][1]*B[1][1]],
+  ];
+}
+function matvec2(M, x, y) {
+  return [M[0][0]*x + M[0][1]*y, M[1][0]*x + M[1][1]*y];
+}
+function normSq(vx, vy) {
+  return vx*vx + vy*vy;
+}
+function quadForm(Minv, vx, vy, mux, muy) {
+  const dx = vx - mux, dy = vy - muy;
+  return Minv[0][0]*dx*dx + 2*Minv[0][1]*dx*dy + Minv[1][1]*dy*dy;
+}
+function decomposeA(A) {
+  return [
+    [[A[0][0], .5*(A[0][1]+A[1][0])], [.5*(A[1][0]+A[0][1]), A[1][1]]],
+    [[0,       .5*(A[0][1]-A[1][0])], [.5*(A[1][0]-A[0][1]), 0      ]],
+  ];
+}
+function isHurwitz(A) {
+  return (A[0][0]+A[1][1]) < 0 && (A[0][0]*A[1][1]-A[0][1]*A[1][0]) > 0;
+}
+function solveLyapunov(A, sigma) {
+  if (!isHurwitz(A)) return null;
+  const [a00,a01,a10,a11] = [A[0][0],A[0][1],A[1][0],A[1][1]];
+  const s2 = sigma*sigma, trA = a00+a11, detA = a00*a11-a01*a10, d = trA*(-detA);
+  return [
+    [(s2*(a01**2-a01*a10+a11*(a00+a11)))/d, (-s2*(a00*a01+a10*a11))/d],
+    [(-s2*(a00*a01+a10*a11))/d, (s2*(a10**2-a01*a10+a00*(a00+a11)))/d],
+  ];
+}
+function computeEp(A, Sigma, sigma) {
+  if (!Sigma) return NaN;
+  const Dinv = [[1/sigma**2,0],[0,1/sigma**2]];
+  const [S,B] = decomposeA(A);
+  const SSSinv = matmul(Sigma, matmul(S, invert2x2(Sigma)));
+  const S_off = [[.5*(S[0][0]-SSSinv[0][0]),.5*(S[0][1]-SSSinv[0][1])],
+                 [.5*(S[1][0]-SSSinv[1][0]),.5*(S[1][1]-SSSinv[1][1])]];
+  const BpS = [[B[0][0]+S_off[0][0],B[0][1]+S_off[0][1]],
+               [B[1][0]+S_off[1][0],B[1][1]+S_off[1][1]]];
+  const MS = matmul(matmul(transpose(BpS), matmul(Dinv,BpS)), Sigma);
+  return 2*(MS[0][0]+MS[1][1]);
+}
+function rotationFrequency(B) { return B[0][1]; }
+function symmetricEigenvalues(S) {
+  const mid = S[0][0]+S[1][1], half = Math.sqrt((S[0][0]-S[1][1])**2+4*S[0][1]**2);
+  return [(mid+half)/2,(mid-half)/2];
+}
+
+// Operator norm (largest singular value) of a 2x2 matrix via the
+// eigenvalue of AᵀA. Used for autozoom.
+function opNorm2x2(M) {
+  const AtA = matmul(transpose(M), M);
+  const [lam1] = symmetricEigenvalues(AtA);
+  return Math.sqrt(Math.max(0, lam1));
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SIMULATION
+// ═══════════════════════════════════════════════════════════════
+function randn() {
+  const r = Math.sqrt(-2*Math.log(Math.random())), t = 2*Math.PI*Math.random();
+  return [r*Math.cos(t), r*Math.sin(t)];
+}
+
+function expm2x2(A, dt) {
+  const tr = A[0][0]+A[1][1];
+  const det = A[0][0]*A[1][1] - A[0][1]*A[1][0];
+  const disc = tr*tr - 4*det;
+
+  if (disc < 0) {
+    const a = tr/2, b = Math.sqrt(-disc)/2;
+    const eat = Math.exp(a*dt), c = Math.cos(b*dt), s = Math.sin(b*dt)/b;
+    return [
+      [eat*(c + s*(A[0][0]-a)),  eat*(s*A[0][1])          ],
+      [eat*(s*A[1][0]),           eat*(c + s*(A[1][1]-a))  ],
+    ];
+  }
+  if (disc > 1e-20) {
+    const sq = Math.sqrt(disc);
+    const l1 = (tr+sq)/2, l2 = (tr-sq)/2;
+    const e1 = Math.exp(l1*dt), e2 = Math.exp(l2*dt);
+    const gap = l1-l2;
+    const m1 = (e1-e2)/gap, m2 = (l1*e2-l2*e1)/gap;
+    return [
+      [m1*A[0][0]+m2,  m1*A[0][1]  ],
+      [m1*A[1][0],     m1*A[1][1]+m2],
+    ];
+  }
+  const l = tr/2, elt = Math.exp(l*dt);
+  return [
+    [elt*(1+(A[0][0]-l)*dt),  elt*A[0][1]*dt  ],
+    [elt*A[1][0]*dt,           elt*(1+(A[1][1]-l)*dt)],
+  ];
+}
+
+function computeQ(Sigma, M) {
+  const MSMt = matmul(M, matmul(Sigma, transpose(M)));
+  return [
+    [Sigma[0][0]-MSMt[0][0], Sigma[0][1]-MSMt[0][1]],
+    [Sigma[1][0]-MSMt[1][0], Sigma[1][1]-MSMt[1][1]],
+  ];
+}
+
+function stepExactFull(x, y, M, LQ) {
+  const [mx, my] = matvec2(M, x, y);
+  const [z0, z1] = randn();
+  const nx = LQ[0][0]*z0;
+  const ny = LQ[1][0]*z0 + LQ[1][1]*z1;
+  return { next: [mx+nx, my+ny], mean: [mx, my], noise: [nx, ny] };
+}
+
+function sampleFromSigma(L) {
+  const [z0,z1] = randn();
+  return [L[0][0]*z0, L[1][0]*z0+L[1][1]*z1];
+}
+
+function computeMReverse(M, Sigma) {
+  return matmul(Sigma, matmul(transpose(M), invert2x2(Sigma)));
+}
+
+function computeA_rev(A, Sigma, sigma) {
+  const Sinv = invert2x2(Sigma);
+  const twoD = 2*sigma**2;
+  return [
+    [-(A[0][0] + twoD*Sinv[0][0]), -(A[0][1] + twoD*Sinv[0][1])],
+    [-(A[1][0] + twoD*Sinv[1][0]), -(A[1][1] + twoD*Sinv[1][1])],
+  ];
+}
+
+// Welford online covariance
+function welfordInit() { return {n:0,mx:0,my:0,M00:0,M01:0,M11:0}; }
+function welfordUpdate(w, x, y) {
+  w.n++;
+  const dx=x-w.mx, dy=y-w.my;
+  w.mx+=dx/w.n; w.my+=dy/w.n;
+  w.M00+=dx*(x-w.mx); w.M01+=dx*(y-w.my); w.M11+=dy*(y-w.my);
+}
+function welfordResult(w) {
+  if (w.n<2) return null;
+  const inv=1/(w.n-1);
+  return [[w.M00*inv,w.M01*inv],[w.M01*inv,w.M11*inv]];
+}
+
+// ═══════════════════════════════════════════════════════════════
+// RENDERING
+// ═══════════════════════════════════════════════════════════════
+const canvas = document.getElementById('c');
+const ctx    = canvas.getContext('2d');
+let SCALE = 60;
+
+canvas.width  = 600;
+canvas.height = 340;
+
+document.getElementById('canvas-wrap').addEventListener('wheel', e => {
+  e.preventDefault();
+  SCALE = Math.max(10, Math.min(500, SCALE * (e.deltaY < 0 ? 1.1 : 1/1.1)));
+  redraw();
+}, { passive: false });
+
+function toCanvas(x, y) {
+  return [canvas.width/2 + x*SCALE, canvas.height/2 - y*SCALE];
+}
+
+function drawEllipse(cov, color, lw=1.5) {
+  if (!cov) return;
+  const [a,b,d] = [cov[0][0],cov[0][1],cov[1][1]];
+  const mid=(a+d)/2, disc=Math.sqrt(Math.max(0,((a-d)/2)**2+b**2));
+  const lam1=mid+disc, lam2=mid-disc;
+  if (lam1<=0||lam2<=0) return;
+  let ex=b, ey=lam1-a;
+  const en=Math.sqrt(ex**2+ey**2);
+  if (en<1e-12){ex=1;ey=0;}else{ex/=en;ey/=en;}
+  const angle=Math.atan2(ey,ex);
+  const rx=3*Math.sqrt(lam1)*SCALE, ry=3*Math.sqrt(lam2)*SCALE;
+  const [cx,cy]=toCanvas(0,0);
+  ctx.save();
+  ctx.translate(cx,cy);
+  ctx.scale(1,-1);
+  ctx.rotate(angle);
+  ctx.beginPath();
+  ctx.ellipse(0,0,rx,ry,0,0,2*Math.PI);
+  ctx.strokeStyle=color; ctx.lineWidth=lw; ctx.globalAlpha=0.8;
+  ctx.stroke(); ctx.globalAlpha=1; ctx.restore();
+}
+
+function drawCurrentField(A, Sigma) {
+  if (!Sigma) return;
+  const [S,B]=decomposeA(A);
+  const SSSinv=matmul(Sigma,matmul(S,invert2x2(Sigma)));
+  const S_off=[[.5*(S[0][0]-SSSinv[0][0]),.5*(S[0][1]-SSSinv[0][1])],
+               [.5*(S[1][0]-SSSinv[1][0]),.5*(S[1][1]-SSSinv[1][1])]];
+  const J=[[B[0][0]+S_off[0][0],B[0][1]+S_off[0][1]],[B[1][0]+S_off[1][0],B[1][1]+S_off[1][1]]];
+
+  const gridN=10;
+  const wr=canvas.width/(2*SCALE)*.9;
+  const step=2*wr/(gridN-1);
+
+  // ── Pass 1: compute all j(x) vectors and find global max magnitude ──
+  const pts = [];
+  let maxLen = 0;
+  for (let i=0; i<gridN; i++) {
+    for (let j=0; j<gridN; j++) {
+      const wx=-wr+i*step, wy=-wr+j*step;
+      const jx=J[0][0]*wx+J[0][1]*wy, jy=J[1][0]*wx+J[1][1]*wy;
+      const len=Math.sqrt(jx*jx+jy*jy);
+      pts.push({wx, wy, jx, jy, len});
+      if (len > maxLen) maxLen = len;
+    }
+  }
+  // Nothing to draw if current is essentially zero everywhere
+  if (maxLen < 1e-12) return;
+
+  // ── Pass 2: draw, scaling each arrow relative to global max ──
+  // The longest arrow gets maxPixels; all others are proportional.
+  const maxPixels = 0.42 * step * SCALE;
+
+  for (const {wx, wy, jx, jy, len} of pts) {
+    if (len < 1e-12 * maxLen) continue;
+    const sc = (len / maxLen) * maxPixels;  // preserves relative magnitudes
+    const [px,py]=toCanvas(wx,wy);
+    const ux=jx/len, uy=jy/len;             // unit vector in world space
+    const tx=ux*sc, ty=-uy*sc;              // pixel displacement (y flipped)
+
+    ctx.beginPath(); ctx.moveTo(px,py); ctx.lineTo(px+tx,py+ty);
+    ctx.strokeStyle='#7a5ca0'; ctx.globalAlpha=0.5; ctx.lineWidth=1; ctx.stroke();
+
+    // Arrowhead – size scales with the arrow so tiny arrows don't get big heads
+    const hn=Math.min(4, sc*0.4), hw=Math.min(2, sc*0.2);
+    ctx.beginPath();
+    ctx.moveTo(px+tx, py+ty);
+    ctx.lineTo(px+tx-hn*ux+hw*(-uy), py+ty-hn*(-uy)-hw*ux);
+    ctx.lineTo(px+tx-hn*ux-hw*(-uy), py+ty-hn*(-uy)+hw*ux);
+    ctx.closePath();
+    ctx.fillStyle='#7a5ca0'; ctx.fill(); ctx.globalAlpha=1;
+  }
+}
+
+function drawPath(path, color, alpha) {
+  if (!path||path.length<2) return;
+  ctx.beginPath(); ctx.strokeStyle=color; ctx.globalAlpha=alpha; ctx.lineWidth=1;
+  const [x0,y0]=toCanvas(path[0][0],path[0][1]); ctx.moveTo(x0,y0);
+  for (let i=1;i<path.length;i++) { const [xi,yi]=toCanvas(path[i][0],path[i][1]); ctx.lineTo(xi,yi); }
+  ctx.stroke(); ctx.globalAlpha=1;
+}
+
+function drawHead(pos, color) {
+  const [px,py]=toCanvas(pos[0],pos[1]);
+  ctx.beginPath(); ctx.arc(px,py,2.5,0,2*Math.PI);
+  ctx.fillStyle=color; ctx.globalAlpha=0.9; ctx.fill(); ctx.globalAlpha=1;
+}
+
+function redraw() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  // axes
+  ctx.strokeStyle='#d4cfc4'; ctx.lineWidth=1; ctx.beginPath();
+  ctx.moveTo(0,canvas.height/2); ctx.lineTo(canvas.width,canvas.height/2);
+  ctx.moveTo(canvas.width/2,0);  ctx.lineTo(canvas.width/2,canvas.height);
+  ctx.stroke();
+
+  if (vis.cur) drawCurrentField(state.A, state.Sigma);
+  if (vis.ell) drawEllipse(state.Sigma, '#3a7d44');
+  if (vis.emp) drawEllipse(state.empCov, '#4a6fa5', 1);
+  if (vis.fwd) { state.fwdPaths.forEach(p=>drawPath(p,'#4a6fa5',.45)); state.fwdHeads.forEach(h=>drawHead(h,'#4a6fa5')); }
+  if (vis.rev) { state.revPaths.forEach(p=>drawPath(p,'#b85c38',.45)); state.revHeads.forEach(h=>drawHead(h,'#b85c38')); }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ANIMATION LOOP
+// ═══════════════════════════════════════════════════════════════
+function animFrame() {
+  state.rafId = requestAnimationFrame(animFrame);
+  if (state.paused) return;
+  const { M, LQ, M_rev, LQ_rev, J, dt } = state;
+  for (let i = 0; i < state.nPaths; i++) {
+    // ─── FORWARD ───
+    const [fx, fy] = state.fwdHeads[i];
+    const fStep = stepExactFull(fx, fy, M, LQ);
+    const [fx1, fy1] = fStep.next;
+    state.fwdHeads[i] = fStep.next;
+    state.fwdPaths[i].push(fStep.next);
+    if (state.fwdPaths[i].length > state.maxLen) state.fwdPaths[i].shift();
+
+    // empirical entropy production from current
+    const jx = J[0][0]*fx + J[0][1]*fy;
+    const jy = J[1][0]*fx + J[1][1]*fy;
+    const epInstant = 2 * normSq(jx, jy) / (state.sigma*state.sigma);
+    state.epAcc.sum += epInstant;
+    state.epAcc.n   += 1;
+
+    // empirical covariance
+    welfordUpdate(state.welford, fx1, fy1);
+
+    // ─── VISUAL REVERSE ───
+    const [rx, ry] = state.revHeads[i];
+    const rStep = stepExactFull(rx, ry, M_rev, LQ_rev);
+    state.revHeads[i] = rStep.next;
+    state.revPaths[i].push(rStep.next);
+    if (state.revPaths[i].length > state.maxLen) state.revPaths[i].shift();
+  }
+  state.empCov = welfordResult(state.welford);
+  const empEp = state.epAcc.n > 0 ? state.epAcc.sum / state.epAcc.n : NaN;
+
+  document.getElementById('ep-emp-display').textContent =
+    isNaN(empEp) ? '—' : empEp.toFixed(3);
+  redraw();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// STATS
+// ═══════════════════════════════════════════════════════════════
+function updateStats() {
+  const [S,B]=decomposeA(state.A);
+  const hurwitz=isHurwitz(state.A);
+  const ep=computeEp(state.A,state.Sigma,state.sigma);
+  const lambda=rotationFrequency(B);
+  const [s1,s2]=symmetricEigenvalues(S);
+  document.getElementById('hurwitz-display').textContent=hurwitz?'✓ yes':'✗ no';
+  document.getElementById('hurwitz-display').style.color=hurwitz?'#3a7d44':'#b85c38';
+  document.getElementById('ep-display').textContent=isNaN(ep)?'—':ep.toFixed(3);
+  document.getElementById('lambda-display').textContent=isNaN(lambda)?'—':lambda.toFixed(2);
+  document.getElementById('s-display').textContent=`${s1.toFixed(2)}, ${s2.toFixed(2)}`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ORCHESTRATION
+// ═══════════════════════════════════════════════════════════════
+function autoZoomFromSigma(Sigma, J) {
+  if (!Sigma) return;
+
+  // Largest half-axis of the 3σ ellipse
+  const a = Sigma[0][0], b = Sigma[0][1], d = Sigma[1][1];
+  const mid  = (a + d) / 2;
+  const disc = Math.sqrt(Math.max(0, ((a-d)/2)**2 + b*b));
+  const lamMax = mid + disc;
+  const ellipseRadius = 3 * Math.sqrt(lamMax);
+
+  // Estimate the world-space reach of the current field:
+  // the longest arrow tip sits at ~ellipseRadius * ||J||_op from origin
+  let worldRadius = ellipseRadius;
+  if (J) {
+    const jOpNorm = opNorm2x2(J);
+    // arrows are drawn up to 42% of one grid cell, but we want the zoom
+    // to accommodate the ellipse; the field is rendered within the viewport
+    // anyway, so only bump zoom out slightly if J is very large
+    worldRadius = Math.max(ellipseRadius, ellipseRadius * (1 + 0.08 * jOpNorm));
+  }
+
+  // Fit worldRadius comfortably in the shorter viewport dimension
+  SCALE = 0.40 * Math.min(canvas.width, canvas.height) / worldRadius;
+  SCALE = Math.max(15, Math.min(220, SCALE));
+}
+
+function recompute() {
+  state.sigma  = parseFloat(document.getElementById('sigma').value);
+  // dt is stored in log space on the slider
+  state.dt     = Math.exp(parseFloat(document.getElementById('dt').value));
+  state.nPaths = parseInt(document.getElementById('npaths').value);
+  state.maxLen = parseInt(document.getElementById('steps').value);
+
+  state.Sigma  = solveLyapunov(state.A, state.sigma);
+
+  if (state.Sigma) {
+    state.A_rev = computeA_rev(state.A, state.Sigma, state.sigma);
+
+    state.M     = expm2x2(state.A,     state.dt);
+    state.M_rev = expm2x2(state.A_rev, state.dt);
+
+    const Q     = computeQ(state.Sigma, state.M);
+    const Q_rev = computeQ(state.Sigma, state.M_rev);
+
+    state.LQ     = cholesky2x2(Q);
+    state.LQ_rev = cholesky2x2(Q_rev);
+
+    // Irreversible stationary current matrix J
+    const Sinv = invert2x2(state.Sigma);
+    state.J = [
+      [state.A[0][0] + state.sigma*state.sigma*Sinv[0][0],
+       state.A[0][1] + state.sigma*state.sigma*Sinv[0][1]],
+      [state.A[1][0] + state.sigma*state.sigma*Sinv[1][0],
+       state.A[1][1] + state.sigma*state.sigma*Sinv[1][1]],
+    ];
+
+    autoZoomFromSigma(state.Sigma, state.J);
+  }
+
+  state.epAcc = {n: 0, sum: 0};
+  resample();
+  updateStats();
+}
+
+function resample() {
+  if (state.rafId!==null) { cancelAnimationFrame(state.rafId); state.rafId=null; }
+  if (!state.Sigma) { redraw(); return; }
+  const L=cholesky2x2(state.Sigma);
+  state.fwdPaths=[]; state.revPaths=[]; state.fwdHeads=[]; state.revHeads=[];
+  state.welford = welfordInit();
+  state.epAcc   = {n: 0, sum: 0};
+  for (let i=0;i<state.nPaths;i++) {
+    const x0f=sampleFromSigma(L), x0r=sampleFromSigma(L);
+    state.fwdHeads.push(x0f); state.revHeads.push(x0r);
+    state.fwdPaths.push([x0f]); state.revPaths.push([x0r]);
+    welfordUpdate(state.welford,x0f[0],x0f[1]);
+  }
+  state.rafId=requestAnimationFrame(animFrame);
+}
+
+function togglePause() {
+  state.paused=!state.paused;
+  document.getElementById('pause-btn').textContent=state.paused?'Resume':'Pause';
+}
+
+recompute();
+
+// Report height to parent iframe
+function reportHeight() {
+  const h = document.body.scrollHeight;
+  window.parent.postMessage({ ouWidgetHeight: h }, '*');
+}
+window.addEventListener('load', reportHeight);
+new ResizeObserver(reportHeight).observe(document.body);
+</script>
+</body>
+</html>
