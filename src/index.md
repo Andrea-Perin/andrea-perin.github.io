@@ -2,12 +2,9 @@
 % Andrea Perin
 % 2025-08-27
 
-::: bio
-![](imgs/avatar.jpg){.bio-img}
-
-::: bio-content
 Hi! I am Andrea, a PhD student at **Aalto University**, under the supervision of professor [Stéphane Deny](https://sites.google.com/view/stephanedeny/home).
-I work on basic AI research, and atm I am focusing on local learning rules.
+
+I work on basic AI research; atm focusing on local learning rules.
 
 **Research interests:**
 
@@ -16,8 +13,6 @@ I work on basic AI research, and atm I am focusing on local learning rules.
 - statistical mechanics
 - information geometry
 - diffusion models
-:::
-:::
 
 ### Contacts
 - Email: andrea.perin [at] aalto.fi

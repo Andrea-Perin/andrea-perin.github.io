@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>S++2 Cone — Equal Aspect Interactive SVG</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      height: 100vh;
+      display: grid;
+      place-items: center;
+      background: #ffffff;
+      overflow: hidden;
+    }
+    svg {
+      width: 100vw;
+      height: 100vh;
+      display: block;
+      cursor: grab;
+      user-select: none;
+      touch-action: none;
+    }
+    svg:active {
+      cursor: grabbing;
+    }
+  </style>
+</head>
+<body>
+  <svg id="scene" viewBox="-420 -340 840 680"></svg>
+
+  <script>
+    const svg = document.getElementById("scene");
+    const NS = "http://www.w3.org/2000/svg";
+
+    // Equal 1:1:1 world units across x, y, z
+    const L = 4.0;
+    const state = {
+      yaw: -0.82,
+      pitch: 0.42,
+      scale: 68,
+      dragging: false,
+      lastX: 0,
+      lastY: 0
+    };
+
+    function el(tag, attrs = {}) {
+      const node = document.createElementNS(NS, tag);
+      for (const [k, v] of Object.entries(attrs)) {
+        node.setAttribute(k, v);
+      }
+      return node;
+    }
+
+    // Isotropic 1:1:1 projection centered on the cone's bounding box
+    function project([x, y, z]) {
+      const cx = x - L * 0.45;
+      const cy = y - L * 0.45;
+      const cz = z; // 1:1:1 aspect ratio (no z scaling)
+
+      const cosY = Math.cos(state.yaw);
+      const sinY = Math.sin(state.yaw);
+      const x1 = cx * cosY - cy * sinY;
+      const y1 = cx * sinY + cy * cosY;
+
+      const cosP = Math.cos(state.pitch);
+      const sinP = Math.sin(state.pitch);
+      const y2 = y1 * cosP - cz * sinP;
+      const z2 = y1 * sinP + cz * cosP;
+
+      const fov = 18;
+      const factor = (fov / (fov - y2)) * state.scale;
+      return {
+        sx: x1 * factor,
+        sy: -z2 * factor,
+        depth: y2
+      };
+    }
+
+    function polyPoints(pts3d) {
+      return pts3d.map(p => {
+        const pr = project(p);
+        return `${pr.sx.toFixed(1)},${pr.sy.toFixed(1)}`;
+      }).join(" ");
+    }
+
+    // Parameterize cone cleanly down to x=0 and y=0 without infinite-slope artifacts:
+    // x = r * cos^2(theta), y = r * sin^2(theta), z = +/- r * cos(theta) * sin(theta)
+    // Truncated smoothly at max(x, y) <= L
+    function conePoint(u, theta, sign) {
+      const c = Math.cos(theta);
+      const s = Math.sin(theta);
+      const rMax = L / Math.max(c * c, s * s);
+      const r = u * rMax;
+      return [r * c * c, r * s * s, sign * r * c * s];
+    }
+
+    function buildConicalSheet(sign, fill, stroke) {
+      const nu = 14;
+      const nt = 24;
+      const quads = [];
+
+      for (let i = 0; i < nu; i++) {
+        const u0 = i / nu;
+        const u1 = (i + 1) / nu;
+        for (let j = 0; j < nt; j++) {
+          const t0 = (j / nt) * (Math.PI * 0.5);
+          const t1 = ((j + 1) / nt) * (Math.PI * 0.5);
+
+          const p00 = conePoint(u0, t0, sign);
+          const p10 = conePoint(u1, t0, sign);
+          const p11 = conePoint(u1, t1, sign);
+          const p01 = conePoint(u0, t1, sign);
+
+          const avgDepth = (
+            project(p00).depth +
+            project(p10).depth +
+            project(p11).depth +
+            project(p01).depth
+          ) * 0.25;
+
+          quads.push({
+            kind: "poly",
+            depth: avgDepth,
+            pts: [p00, p10, p11, p01],
+            fill,
+            stroke,
+            width: 0.65
+          });
+        }
+      }
+      return quads;
+    }
+
+    function addSegmentedLine(drawables, a, b, color, width, dash = null, steps = 16) {
+      for (let i = 0; i < steps; i++) {
+        const f0 = i / steps;
+        const f1 = (i + 1) / steps;
+        const p0 = [
+          a[0] + (b[0] - a[0]) * f0,
+          a[1] + (b[1] - a[1]) * f0,
+          a[2] + (b[2] - a[2]) * f0
+        ];
+        const p1 = [
+          a[0] + (b[0] - a[0]) * f1,
+          a[1] + (b[1] - a[1]) * f1,
+          a[2] + (b[2] - a[2]) * f1
+        ];
+        drawables.push({
+          kind: "line",
+          depth: (project(p0).depth + project(p1).depth) * 0.5,
+          a: p0,
+          b: p1,
+          color,
+          width,
+          dash: dash && i % 2 === 0 ? dash : null
+        });
+      }
+    }
+
+    function render() {
+      svg.innerHTML = "";
+      const drawables = [];
+
+      // 1. Reference 1:1:1 coordinate axes
+      addSegmentedLine(drawables, [0, 0, 0], [L + 0.4, 0, 0], "#64748b", 1.2);
+      addSegmentedLine(drawables, [0, 0, 0], [0, L + 0.4, 0], "#64748b", 1.2);
+      addSegmentedLine(drawables, [0, 0, -L * 0.65], [0, 0, L * 0.65], "#64748b", 1.2);
+
+      const labels = [
+        { pt: [L + 0.6, 0, 0], text: "x" },
+        { pt: [0, L + 0.6, 0], text: "y" },
+        { pt: [0, 0, L * 0.72], text: "z" }
+      ];
+      for (const lb of labels) {
+        drawables.push({
+          kind: "text",
+          depth: project(lb.pt).depth,
+          pt: lb.pt,
+          text: lb.text,
+          color: "#334155"
+        });
+      }
+
+      // 2. Full boundary cone z^2 = xy (semi-transparent shell)
+      drawables.push(
+        ...buildConicalSheet(1, "rgba(2, 132, 199, 0.16)", "rgba(2, 132, 199, 0.35)"),
+        ...buildConicalSheet(-1, "rgba(2, 132, 199, 0.11)", "rgba(2, 132, 199, 0.28)")
+      );
+
+      // 3. Excluded boundary pinch lines along x-axis and y-axis (z = 0, xy = 0)
+      addSegmentedLine(drawables, [0, 0, 0], [L, 0, 0], "#e11d48", 2.6, "5,4", 24);
+      addSegmentedLine(drawables, [0, 0, 0], [0, L, 0], "#e11d48", 2.6, "5,4", 24);
+
+      // 4. Open rim curves at boundary z = +/- sqrt(xy)
+      const nt = 32;
+      for (const sign of [1, -1]) {
+        for (let j = 0; j < nt; j++) {
+          const t0 = (j / nt) * (Math.PI * 0.5);
+          const t1 = ((j + 1) / nt) * (Math.PI * 0.5);
+          const p0 = conePoint(1, t0, sign);
+          const p1 = conePoint(1, t1, sign);
+          drawables.push({
+            kind: "line",
+            depth: (project(p0).depth + project(p1).depth) * 0.5,
+            a: p0,
+            b: p1,
+            color: "rgba(225, 29, 72, 0.8)",
+            width: 1.5,
+            dash: j % 2 === 0 ? "4,3" : null
+          });
+        }
+      }
+
+      // 5. Interior central ray (x = y > 0, z = 0) strictly inside S++2
+      addSegmentedLine(drawables, [0.05, 0.05, 0], [L, L, 0], "#059669", 2.0, null, 20);
+
+      // Painter's depth sort
+      drawables.sort((a, b) => a.depth - b.depth);
+
+      for (const item of drawables) {
+        if (item.kind === "poly") {
+          svg.appendChild(el("polygon", {
+            points: polyPoints(item.pts),
+            fill: item.fill,
+            stroke: item.stroke,
+            "stroke-width": item.width,
+            "stroke-linejoin": "round"
+          }));
+        } else if (item.kind === "line") {
+          const pA = project(item.a);
+          const pB = project(item.b);
+          const attrs = {
+            x1: pA.sx.toFixed(1),
+            y1: pA.sy.toFixed(1),
+            x2: pB.sx.toFixed(1),
+            y2: pB.sy.toFixed(1),
+            stroke: item.color,
+            "stroke-width": item.width,
+            "stroke-linecap": "round"
+          };
+          if (item.dash) attrs["stroke-dasharray"] = item.dash;
+          svg.appendChild(el("line", attrs));
+        } else if (item.kind === "text") {
+          const pr = project(item.pt);
+          const txt = el("text", {
+            x: pr.sx.toFixed(1),
+            y: pr.sy.toFixed(1),
+            fill: item.color,
+            "font-family": "system-ui, sans-serif",
+            "font-size": "14",
+            "font-weight": "600"
+          });
+          txt.textContent = item.text;
+          svg.appendChild(txt);
+        }
+      }
+    }
+
+    svg.addEventListener("pointerdown", e => {
+      state.dragging = true;
+      state.lastX = e.clientX;
+      state.lastY = e.clientY;
+      svg.setPointerCapture(e.pointerId);
+    });
+
+    svg.addEventListener("pointermove", e => {
+      if (!state.dragging) return;
+      const dx = e.clientX - state.lastX;
+      const dy = e.clientY - state.lastY;
+      state.lastX = e.clientX;
+      state.lastY = e.clientY;
+
+      state.yaw += dx * 0.008;
+      state.pitch = Math.max(-1.35, Math.min(1.35, state.pitch + dy * 0.008));
+      render();
+    });
+
+    svg.addEventListener("pointerup", () => {
+      state.dragging = false;
+    });
+
+    svg.addEventListener("wheel", e => {
+      e.preventDefault();
+      state.scale = Math.max(25, Math.min(160, state.scale * (e.deltaY > 0 ? 0.92 : 1.08)));
+      render();
+    }, { passive: false });
+
+    render();
+  </script>
+</body>
+</html>

@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>SPD(2) Circulant Slice Geodesics</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #ffffff;
+      color: #0f172a;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      padding: 18px;
+    }
+    .panel {
+      width: 100%;
+      max-width: 820px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 12px 16px;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      background: #f8fafc;
+    }
+    .time-box {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 1 1 280px;
+    }
+    input[type="range"] {
+      flex: 1;
+      cursor: pointer;
+    }
+    button {
+      padding: 6px 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 7px;
+      background: #ffffff;
+      color: #0f172a;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #f1f5f9;
+    }
+    .matrices-grid {
+      width: 100%;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 10px;
+    }
+    .mat-card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 8px 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .swatch {
+      width: 10px;
+      height: 36px;
+      border-radius: 4px;
+      flex: 0 0 auto;
+    }
+    .matrix {
+      display: inline-grid;
+      grid-template-columns: repeat(2, auto);
+      gap: 2px 12px;
+      padding: 2px 7px;
+      border-left: 2px solid #334155;
+      border-right: 2px solid #334155;
+      border-radius: 3px;
+      font-variant-numeric: tabular-nums;
+      font-size: 12.5px;
+      line-height: 1.35;
+      color: #0f172a;
+    }
+    .matrix span {
+      text-align: right;
+    }
+    svg#plot {
+      width: 100%;
+      max-width: 820px;
+      height: auto;
+      display: block;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      background: #ffffff;
+    }
+  </style>
+</head>
+<body>
+  <div class="panel">
+    <div class="time-box">
+      <label for="tSlider"><strong>t</strong></label>
+      <input id="tSlider" type="range" min="0" max="1" step="0.005" value="0.5" />
+      <span id="tVal" style="font-variant-numeric: tabular-nums; min-width: 42px;">0.500</span>
+    </div>
+    <div style="display: flex; gap: 8px;">
+      <button id="playBtn">Play</button>
+      <button id="resetBtn">Reset t = 0</button>
+    </div>
+    <div class="matrices-grid" id="readout"></div>
+  </div>
+
+  <svg id="plot" viewBox="0 0 640 480"></svg>
+
+  <script>
+    function mul2(A, B) {
+      return [
+        [A[0][0] * B[0][0] + A[0][1] * B[1][0], A[0][0] * B[0][1] + A[0][1] * B[1][1]],
+        [A[1][0] * B[0][0] + A[1][1] * B[1][0], A[1][0] * B[0][1] + A[1][1] * B[1][1]]
+      ];
+    }
+
+    function symPow2(a, b, c, p) {
+      const m = 0.5 * (a + c);
+      const d = 0.5 * (a - c);
+      const r = Math.hypot(d, b);
+      let l1, l2, v1;
+      if (r < 1e-12) {
+        if (a >= c) {
+          l1 = a; l2 = c; v1 = [1, 0];
+        } else {
+          l1 = c; l2 = a; v1 = [0, 1];
+        }
+      } else {
+        l1 = m + r;
+        l2 = m - r;
+        const raw = [b, r - d];
+        const norm = Math.hypot(raw[0], raw[1]);
+        v1 = [raw[0] / norm, raw[1] / norm];
+      }
+      const v2 = [-v1[1], v1[0]];
+      const p1 = Math.pow(l1, p);
+      const p2 = Math.pow(l2, p);
+      return [
+        [p1 * v1[0] * v1[0] + p2 * v2[0] * v2[0], p1 * v1[0] * v1[1] + p2 * v2[0] * v2[1]],
+        [p1 * v1[1] * v1[0] + p2 * v2[1] * v2[0], p1 * v1[1] * v1[1] + p2 * v2[1] * v2[1]]
+      ];
+    }
+
+    function spdGeodesicXZ(P, Q, t) {
+      const [px, pz] = P;
+      const [qx, qz] = Q;
+      const Ph = symPow2(px, pz, px, 0.5);
+      const Pmh = symPow2(px, pz, px, -0.5);
+      const Qmat = [[qx, qz], [qz, qx]];
+      const inner = mul2(mul2(Pmh, Qmat), Pmh);
+      const mid = symPow2(inner[0][0], 0.5 * (inner[0][1] + inner[1][0]), inner[1][1], t);
+      const res = mul2(mul2(Ph, mid), Ph);
+      return [0.5 * (res[0][0] + res[1][1]), 0.5 * (res[0][1] + res[1][0])];
+    }
+
+    // Start/end pairs in (x, z) where M = [[x, z], [z, x]], x > |z|
+    const geodesics = [
+      { P: [2.5,  0.0],  Q: [8.0,  0.0],   color: "#2563eb" },
+      { P: [2.25, 2.0],  Q: [2.25,-2.0],   color: "#dc2626" }, // close to boundary -> sharp bend inward
+      { P: [7.5,  2.0],  Q: [7.5, -2.0],   color: "#059669" }, // same z span, further right -> gentler curve
+      { P: [1.8,  1.6],  Q: [8.5,  7.2],   color: "#7c3aed" }
+    ];
+
+    const svg = document.getElementById("plot");
+    const NS = "http://www.w3.org/2000/svg";
+    const W = 640, H = 480;
+    const ml = 56, mr = 24, mt = 24, mb = 48;
+    const pw = W - ml - mr;
+    const ph = H - mt - mb;
+
+    const xMin = 0, xMax = 10;
+    const zMin = -10, zMax = 10;
+
+    function sx(x) { return ml + ((x - xMin) / (xMax - xMin)) * pw; }
+    function sy(z) { return mt + ((zMax - z) / (zMax - zMin)) * ph; }
+
+    function el(tag, attrs = {}, text = null) {
+      const node = document.createElementNS(NS, tag);
+      for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
+      if (text !== null) node.textContent = text;
+      return node;
+    }
+
+    const staticLayer = el("g");
+    const dynamicLayer = el("g");
+    svg.append(staticLayer, dynamicLayer);
+
+    for (let x = 0; x <= 10; x += 2) {
+      staticLayer.appendChild(el("line", {
+        x1: sx(x), y1: mt, x2: sx(x), y2: mt + ph,
+        stroke: "#f1f5f9", "stroke-width": 1
+      }));
+      staticLayer.appendChild(el("text", {
+        x: sx(x), y: mt + ph + 18, "text-anchor": "middle",
+        fill: "#475569", "font-size": 12
+      }, String(x)));
+    }
+    for (let z = -10; z <= 10; z += 2) {
+      staticLayer.appendChild(el("line", {
+        x1: ml, y1: sy(z), x2: ml + pw, y2: sy(z),
+        stroke: z === 0 ? "#cbd5e1" : "#f1f5f9", "stroke-width": 1
+      }));
+      if (z % 5 === 0) {
+        staticLayer.appendChild(el("text", {
+          x: ml - 8, y: sy(z) + 4, "text-anchor": "end",
+          fill: "#475569", "font-size": 12
+        }, String(z)));
+      }
+    }
+
+    staticLayer.appendChild(el("polygon", {
+      points: `${sx(0)},${sy(0)} ${sx(10)},${sy(10)} ${sx(10)},${sy(-10)}`,
+      fill: "rgba(2, 132, 199, 0.05)"
+    }));
+
+    for (const sign of [1, -1]) {
+      staticLayer.appendChild(el("line", {
+        x1: sx(0), y1: sy(0), x2: sx(10), y2: sy(sign * 10),
+        stroke: "#e11d48", "stroke-width": 1.6, "stroke-dasharray": "6,4"
+      }));
+    }
+
+    staticLayer.appendChild(el("line", { x1: ml, y1: mt + ph, x2: ml + pw, y2: mt + ph, stroke: "#334155", "stroke-width": 1.3 }));
+    staticLayer.appendChild(el("line", { x1: ml, y1: mt, x2: ml, y2: mt + ph, stroke: "#334155", "stroke-width": 1.3 }));
+    staticLayer.appendChild(el("text", {
+      x: ml + pw * 0.5, y: H - 8, "text-anchor": "middle",
+      fill: "#0f172a", "font-size": 13, "font-style": "italic"
+    }, "x = M₁₁ = M₂₂"));
+    staticLayer.appendChild(el("text", {
+      x: 16, y: mt + ph * 0.5, "text-anchor": "middle",
+      fill: "#0f172a", "font-size": 13, "font-style": "italic",
+      transform: `rotate(-90 16 ${mt + ph * 0.5})`
+    }, "z = M₁₂ = M₂₁"));
+
+    const samples = 140;
+    for (const g of geodesics) {
+      const pts = [];
+      for (let i = 0; i <= samples; i++) {
+        const [x, z] = spdGeodesicXZ(g.P, g.Q, i / samples);
+        pts.push(`${sx(x).toFixed(2)},${sy(z).toFixed(2)}`);
+      }
+      staticLayer.appendChild(el("polyline", {
+        points: pts.join(" "),
+        fill: "none", stroke: g.color, "stroke-width": 1.8, opacity: 0.78
+      }));
+
+      staticLayer.appendChild(el("circle", {
+        cx: sx(g.P[0]), cy: sy(g.P[1]), r: 4.5,
+        fill: "#ffffff", stroke: g.color, "stroke-width": 2
+      }));
+      staticLayer.appendChild(el("circle", {
+        cx: sx(g.Q[0]), cy: sy(g.Q[1]), r: 4,
+        fill: g.color
+      }));
+    }
+
+    const tSlider = document.getElementById("tSlider");
+    const tVal = document.getElementById("tVal");
+    const readout = document.getElementById("readout");
+    const playBtn = document.getElementById("playBtn");
+    const resetBtn = document.getElementById("resetBtn");
+
+    function fmtNum(v) {
+      const s = v.toFixed(2);
+      return s === "-0.00" ? "0.00" : s;
+    }
+
+    function update(t) {
+      tVal.textContent = t.toFixed(3);
+      dynamicLayer.innerHTML = "";
+      const cards = [];
+
+      for (const g of geodesics) {
+        const [x, z] = spdGeodesicXZ(g.P, g.Q, t);
+        const px = sx(x);
+        const py = sy(z);
+
+        dynamicLayer.appendChild(el("circle", {
+          cx: px, cy: py, r: 6.5,
+          fill: g.color, stroke: "#ffffff", "stroke-width": 2
+        }));
+
+        const xs = fmtNum(x);
+        const zs = fmtNum(z);
+        cards.push(`
+          <div class="mat-card">
+            <span class="swatch" style="background:${g.color}"></span>
+            <div class="matrix">
+              <span>${xs}</span><span>${zs}</span>
+              <span>${zs}</span><span>${xs}</span>
+            </div>
+          </div>
+        `);
+      }
+
+      readout.innerHTML = cards.join("");
+    }
+
+    tSlider.addEventListener("input", () => update(parseFloat(tSlider.value)));
+
+    resetBtn.addEventListener("click", () => {
+      tSlider.value = "0";
+      update(0);
+    });
+
+    let playing = false;
+    let rafId = null;
+    let lastTime = null;
+
+    function step(now) {
+      if (!playing) return;
+      if (lastTime !== null) {
+        const dt = (now - lastTime) / 1000;
+        let nextT = parseFloat(tSlider.value) + dt * 0.35;
+        if (nextT > 1) nextT -= 1;
+        tSlider.value = nextT.toFixed(3);
+        update(nextT);
+      }
+      lastTime = now;
+      rafId = requestAnimationFrame(step);
+    }
+
+    playBtn.addEventListener("click", () => {
+      playing = !playing;
+      playBtn.textContent = playing ? "Pause" : "Play";
+      lastTime = null;
+      if (playing) rafId = requestAnimationFrame(step);
+      else if (rafId) cancelAnimationFrame(rafId);
+    });
+
+    update(parseFloat(tSlider.value));
+  </script>
+</body>
+</html>

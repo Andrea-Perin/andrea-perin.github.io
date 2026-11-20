@@ -38,23 +38,25 @@ generate_blog_index_public:
 	@./scripts/generate_blog_index.sh $(SRC_DIR) $(SRC_DIR)/blog.md false
 
 # Rule to convert Markdown → HTML (local build with hidden files)
-$(BUILD_DIR)/%.html: $(SRC_DIR)/%.md $(SRC_DIR)/template.html $(SRC_DIR)/style.css
+$(BUILD_DIR)/%.html: $(SRC_DIR)/%.md $(SRC_DIR)/template.html
 	@mkdir -p $(dir $@)
 	$(PANDOC) $< \
 	  --template=$(SRC_DIR)/template.html \
 	  --standalone \
 	  --math-method=mathml \
-	  -f markdown+fenced_divs \
+	  --wrap=none \
+	  -f markdown+fenced_divs+tex_math_single_backslash \
 	  -o $@
 
 # Rule to convert Markdown → HTML (deploy build - public only)
-$(DEPLOY_DIR)/%.html: $(SRC_DIR)/%.md $(SRC_DIR)/template.html $(SRC_DIR)/style.css
+$(DEPLOY_DIR)/%.html: $(SRC_DIR)/%.md $(SRC_DIR)/template.html
 	@mkdir -p $(dir $@)
 	$(PANDOC) $< \
 	  --template=$(SRC_DIR)/template.html \
 	  --standalone \
 	  --math-method=mathml \
-	  -f markdown+fenced_divs \
+	  --wrap=none \
+	  -f markdown+fenced_divs+tex_math_single_backslash \
 	  -o $@
 
 # Copy assets to build directory
@@ -83,7 +85,8 @@ serve_public: public
 
 # Clean build directories
 clean:
-	rm -rf $(BUILD_DIR)/* $(DEPLOY_DIR)/*
+	find $(BUILD_DIR) $(DEPLOY_DIR) -name '.DS_Store' -delete 2>/dev/null || true
+	rm -rf $(BUILD_DIR)/* $(DEPLOY_DIR)/* 2>/dev/null || true
 
 # Show help
 help:

@@ -35,50 +35,47 @@ You may find SPD matrices in the following contexts:
 
 ### The manifold of SPD matrices
 
-Imagine an [\\(n \\times n\\)]{.math .inline} matrix
-[\\(\\mathcal{M}\\)]{.math .inline} that is symmetric and positive
+Imagine an \(n \times n\) matrix
+\(\mathcal{M}\) that is symmetric and positive
 definite. Due to its symmetry, you only actually need to specify
-[\\(n(n+1)/2\\)]{.math .inline} elements to characterize the matrix. You
+\(n(n+1)/2\) elements to characterize the matrix. You
 can then think of this matrix as a point in the space
-[\\(\\mathbb{R}\^{n(n+1)/2}\\)]{.math .inline}. The set of all such
+\(\mathbb{R}^{n(n+1)/2}\). The set of all such
 points that correspond to a symmetric positive definite matrix forms a
 *manifold*. It is possible to endow this manifold with a *metric*, that
 is, a way to "measure distance" between two of its points, thus creating
 a *Riemannian manifold*. We call this manifold
-[\\(\\mathcal{S}\_{++}\^n\\)]{.math .inline}.
+\(\mathcal{S}_{++}^n\).
 
 A careful discussion of Riemannian manifolds is a bit outside of my
 capabilities, but resources are plentiful if you crave some big boy
 maths.
 
 It is instructive and amusing to check what this manifold may look like
-in practice. Choose [\\(n=2\\)]{.math .inline}, so that matrices (which
+in practice. Choose \(n=2\), so that matrices (which
 are symmetric!) are of the type
 
-[\\\[ \\mathcal{M} = \\begin{pmatrix} x & z \\\\ z & y \\end{pmatrix}.
-\\\]]{.math .display}
+\[ \mathcal{M} = \begin{pmatrix} x & z \\ z & y \end{pmatrix}.
+\]
 
 Additionally, we need to satisfy the requirements
 
-[\\\[ \\det \\mathcal{M} = xy - z\^2 \>0, \\quad x\>0, \\quad y\>0.
-\\\]]{.math .display}
+\[ \det \mathcal{M} = xy - z^2 >0, \quad x>0, \quad y>0.
+\]
 
 These are needed for the positive-definiteness requirement. The matrix
-[\\(\\mathcal{M}\\)]{.math .inline} above can be represented as the
-point [\\((x, y, z)\\in \\mathbb{R}\^3\\)]{.math .inline}. We can think
-of the manifold as the following subset of [\\(\\mathbb{R}\^3\\)]{.math
-.inline}:
+\(\mathcal{M}\) above can be represented as the
+point \((x, y, z)\in \mathbb{R}^3\). We can think
+of the manifold as the following subset of \(\mathbb{R}^3\):
 
-[\\\[ \\mathcal{S}\_{++}\^2 = \\{(x, y, z) \\in \\mathbb{R}\^3 \|
-xy-z\^2\>0, x\>0, y\>0\\}. \\\]]{.math .display}
+[\[ \mathcal{S}_{++}^2 = \{(x, y, z) \in \mathbb{R}^3 |
+xy-z^2>0, x>0, y>0\}. \]
 
 Feed this to `matplotlib`, and you get this:
 
 <figure id="fig:cone">
-<img src="../imgs/circdist/circ_cone.png" style="width:75.0%"
-alt="The convex cone structure for a 2D SPD matrix." />
-<figcaption aria-hidden="true">The convex cone structure for a 2D SPD
-matrix.</figcaption>
+<iframe src="cone-3d.html" width="100%" height="420" style="border:none; border-radius:8px;" title="Interactive 3D cone of SPD matrices - drag to rotate, scroll to zoom"></iframe>
+<figcaption>The convex cone structure for a 2D SPD matrix — <em>interactive</em>: drag to rotate, scroll to zoom.</figcaption>
 </figure>
 
 This really looks like a *geometric* cone, and it also happens to be an
@@ -86,31 +83,30 @@ This really looks like a *geometric* cone, and it also happens to be an
 
 ### Distance between SPD matrices
 
-One can define a notion of distance between two SPD matrices [\\(P, Q
-\\in \\mathcal{S}\_{++}\^n\\)]{.math .inline}, as done in [this
+One can define a notion of distance between two SPD matrices [\(P, Q
+\in \mathcal{S}_{++}^n\), as done in [this
 paper](http://www.ipb.uni-bonn.de/pdfs/Forstner1999Metric.pdf): The
 formula looks like this:
 
-[\\\[ d(P, Q) = \\sqrt{\\sum\_{i=1}\^n \\ln\^2 \\lambda_i(P, Q)},
-\\\]]{.math .display}
+\[ d(P, Q) = \sqrt{\sum_{i=1}^n \ln^2 \lambda_i(P, Q)},
+\]
 
-where [\\(\\lambda_i(P, Q)\\)]{.math .inline} denotes the
-[\\(i\\)]{.math .inline}-th eigenvalue that can be obtained by solving
+where \(\lambda_i(P, Q)\) denotes the
+\(i\)-th eigenvalue that can be obtained by solving
 the equation
 
-[\\\[ \\det(\\lambda P - Q) = 0. \\\]]{.math .display}
+\[ \det(\lambda P - Q) = 0. \]
 
 #### Geodesics
 
-Similarly, we can define a *geodesic* between two SPD matrices, [\\(P, Q
-\\in \\mathcal{S}\_{++}\^n\\)]{.math .inline}, with the following
+Similarly, we can define a *geodesic* between two SPD matrices, \(P, Q
+\in \mathcal{S}_{++}^n\), with the following
 formula:
 
-[\\\[ \\gamma(t) = P\^{1/2}(P\^{-1/2}QP\^{-1/2})\^tP\^{1/2}, \\quad
-t\\in\[0,1\]. \\\]]{.math .display}
+\[ \gamma(t) = P^{1/2}(P^{-1/2}QP^{-1/2})^tP^{1/2}, \quad
+t\in[0,1]. \]
 
-For any [\\(t\\in\[0, 1\]\\)]{.math .inline}, [\\(\\gamma(t)\\)]{.math
-.inline} is an SPD matrix. Here is some `JAX` code to get this geodesic:
+For any \(t\in[0, 1]\), \(\gamma(t)\) is an SPD matrix. Here is some `JAX` code to get this geodesic:
 
 ::: {#cb1 .sourceCode}
 ``` {.sourceCode .python}
@@ -140,15 +136,9 @@ path = vmap(gamma)(times)
 ```
 :::
 
-Using this code and a bit of 3D plotting, we get this gif, showing a few
-geodesics in the [\\(\\mathcal{S}\_{++}\^2\\)]{.math .inline} manifold.
-
-<figure id="fig:geodesic">
-<img src="../imgs/circdist/geodesic.gif" style="width:75.0%"
-alt="A few geodesics in the \mathcal{S}_{++}^2 manifold." />
-<figcaption>A few geodesics in the <span
-class="math inline">\(\mathcal{S}_{++}^2\)</span> manifold.</figcaption>
-</figure>
+This code produces geodesics in the \(\mathcal{S}_{++}^2\) manifold; an
+interactive 3D visualization of the cone they live on is at the top of
+this page.
 
 ### Circulant matrices
 
@@ -156,50 +146,48 @@ Now, let's move to [circulant
 matrices](https://en.wikipedia.org/wiki/Circulant_matrix) that also
 happen to be SPD.
 
-Let us start from the case [\\(n=2\\)]{.math .inline}. A 2 by 2,
+Let us start from the case \(n=2\). A 2 by 2,
 positive definite circulant matrix can be written as
 
-[\\\[ \\mathcal{M} = \\begin{pmatrix} x & z \\\\ z & x \\end{pmatrix},
-\\\]]{.math .display}
+\[ \mathcal{M} = \begin{pmatrix} x & z \\ z & x \end{pmatrix},
+\]
 
-with [\\(x\>0\\)]{.math .inline} and [\\(\|z\| \< x\\)]{.math .inline}.
+with \(x>0\) and \(|z| < x\).
 This is a manifold, too! I will call it
-[\\(\\mathcal{C}\_{++}\^2\\)]{.math .inline}; this is a 2D manifold (one
-fewer dimension than [\\(\\mathcal{S}\_{++}\^2\\)]{.math .inline}).
+\(\mathcal{C}_{++}^2\); this is a 2D manifold (one
+fewer dimension than \(\mathcal{S}_{++}^2\)).
 Specifically, it can be visualized as a slice of the cone above,
-obtained by intersecting it with the plane [\\(x=y\\)]{.math .inline}.
+obtained by intersecting it with the plane \(x=y\).
 This is, again, a cone (at least algebraically speaking; I guess it is
 also geometrically a 2D cone). We can now visualize the geodesics
 between circulant matrices on a 2D plane.
 
 <figure id="fig:geodesic_circ">
-<img src="../imgs/circdist/circ_cone.png" style="width:75.0%"
-alt="A few geodesics in the \mathcal{C}_{++}^2 manifold." />
-<figcaption>A few geodesics in the <span
-class="math inline">\(\mathcal{C}_{++}^2\)</span> manifold.</figcaption>
+<iframe src="circ-geodesics.html" width="100%" height="620" style="border:none; border-radius:8px;" title="Interactive geodesics on the circulant slice - drag the slider or press play"></iframe>
+<figcaption>A few geodesics in the \(\mathcal{C}_{++}^2\) manifold — <em>interactive</em>: move the slider to sweep \(t\), or press play.</figcaption>
 </figure>
 
-### Geodesic formula for [\\(\\mathcal{C}\_{++}\^n\\)]{.math .inline}
+### Geodesic formula for \(\mathcal{C}_{++}^n\)
 
 We can just reuse the geodesic formula for
-[\\(\\mathcal{S}\_{++}\^n\\)]{.math .inline} and specialize it to the
-submanifold of circulant matrices. Consider [\\(P, Q \\in
-\\mathcal{C}\_{++}\^n\\)]{.math .inline}; these are diagonalized by the
+\(\mathcal{S}_{++}^n\) and specialize it to the
+submanifold of circulant matrices. Consider \(P, Q \in
+\mathcal{C}_{++}^n\); these are diagonalized by the
 [DFT matrix](https://en.wikipedia.org/wiki/Discrete_Fourier_transform),
-[\\(\\mathcal{F}\\)]{.math .inline}:
+\(\mathcal{F}\):
 
-[\\\[ P = \\mathcal{F} \\Lambda_P \\mathcal{F}\^{-1}, \\quad Q =
-\\mathcal{F} \\Lambda_Q \\mathcal{F}\^{-1}. \\\]]{.math .display}
+\[ P = \mathcal{F} \Lambda_P \mathcal{F}^{-1}, \quad Q =
+\mathcal{F} \Lambda_Q \mathcal{F}^{-1}. \]
 
-Then, we get an easier expression for [\\(\\gamma: \[0, 1\] \\to
-\\mathcal{C}\_{++}\^n\\)]{.math .inline}:
+Then, we get an easier expression for \(\gamma: [0, 1] \to
+\mathcal{C}_{++}^n\):
 
-[\\\[ \\gamma(t) = \\mathcal{F} \\frac{\\Lambda_Q\^t}{\\Lambda_P\^{t-1}}
-\\mathcal{F}\^{-1}, \\\]]{.math .display}
+\[ \gamma(t) = \mathcal{F} \frac{\Lambda_Q^t}{\Lambda_P^{t-1}}
+\mathcal{F}^{-1}, \]
 
 where the ratio and the power operation are understood to happen
-elementwise. As a sanity check, we see that [\\(\\gamma(0) = P\\)]{.math
-.inline} and [\\(\\gamma(1) = Q\\)]{.math .inline}, as expected. The
+elementwise. As a sanity check, we see that \(\gamma(0) = P\)
+and \(\gamma(1) = Q\), as expected. The
 code for this geodesic is a tiny bit cleaner, as well:
 
 ::: {#cb2 .sourceCode}
@@ -233,17 +221,17 @@ What about the distance between two circulant matrices? Again, we can
 just take the definition of distance that holds for generic SPD
 matrices, and use the properties of circulant matrices. We get
 
-[\\\[ d(P, Q)\^2 = \\sum_i
-\\left(\\ln\\frac{(\\Lambda_P)\_i}{(\\Lambda_Q)\_i}\\right)\^2,
-\\\]]{.math .display}
+\[ d(P, Q)^2 = \sum_i
+\left(\ln\frac{(\Lambda_P)_i}{(\Lambda_Q)_i}\right)^2,
+\]
 
-where [\\(\\Lambda_P, \\Lambda_Q\\)]{.math .inline} are the spectra of
-the matrices [\\(P, Q\\)]{.math .inline} (in other words, their DFT).
+where \(\Lambda_P, \Lambda_Q\) are the spectra of
+the matrices \(P, Q\) (in other words, their DFT).
 After slight manipulation, this expression looks a lot like a usual
 Euclidean distance:
 
-[\\\[ d(P, Q)\^2 = \\sum_i \\left(\\ln(\\Lambda_P)\_i -
-\\ln(\\Lambda_Q)\_i\\right)\^2, \\\]]{.math .display}
+\[ d(P, Q)^2 = \sum_i \left(\ln(\Lambda_P)_i -
+\ln(\Lambda_Q)_i\right)^2, \]
 
 so a sum of squared *log-distances* between eigenvalues.
 
@@ -252,9 +240,7 @@ TODO: find analogies in signal processing maybe?
 ### Open questions
 
 I have one question left at the moment (hopefully, more will arise). The
-question is: take a matrix [\\(P \\in \\mathcal{S}\_{++}\^n\\)]{.math
-.inline}; what is the *closest* matrix [\\(Q \\in
-\\mathcal{C}\_{++}\^n\\)]{.math .inline}? The idea has something to do
+question is: take a matrix \(P \in \mathcal{S}_{++}^n\); what is the *closest* matrix \(Q \in \mathcal{C}_{++}^n\)? The idea has something to do
 with [our recent paper](https://arxiv.org/abs/2412.11521), where we use
 an *ex-post* circularization procedure on Gram matrices. This
 circularization happens by simply averaging the diagonals of the Gram
@@ -263,8 +249,8 @@ matrix circulant that would make much sense. So it would be nice to see
 if it just so happens that this diagonal-averaged matrix is the
 "orthogonal projection" of an SPD matrix onto the submanifold of
 circulant SPD matrices. A possible plan of attack would be to minimize
-the length between an arbitrary SPD matrix [\\(P\\)]{.math .inline} and
-a target circulant SPD matrix [\\(Q\\)]{.math .inline}. I will maybe do
+the length between an arbitrary SPD matrix \(P\) and
+a target circulant SPD matrix \(Q\). I will maybe do
 that in the next days.
 
 ### A possible answer
@@ -272,14 +258,12 @@ that in the next days.
 I think I may have a way to argue that the diagonal-wise averaging
 produces the "orthogonal projection" of a PSD matrix onto the
 submanifold of circulant matrices. Let us consider, for now, the case
-[\\(n=2\\)]{.math .inline}.
+\(n=2\).
 
 Here, the cone structure can be visualized. We are interested in mapping
-the matrix [\\(Q \\in \\mathcal{S}\_{++}\^2\\)]{.math .inline} to its
-"orthogonal projection" [\\(Q_C \\in \\mathcal{C}\_{++}\^2\\)]{.math
-.inline}. To obtain such point, let us consider the "mirrored version"
-of [\\(Q\\)]{.math .inline}, with respect to the plane [\\(x=y\\)]{.math
-.inline}.
+the matrix \(Q \in \mathcal{S}_{++}^2\) to its
+"orthogonal projection" \(Q_C \in \mathcal{C}_{++}^2\). To obtain such point, let us consider the "mirrored version"
+of \(Q\), with respect to the plane \(x=y\).
 
 ### References
 
