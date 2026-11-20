@@ -3,39 +3,71 @@ SRC_DIR=src
 BUILD_DIR=build
 DEPLOY_DIR=deploy
 
-# Find all markdown files
-ALL_MD_FILES=$(shell find $(SRC_DIR) -name '*.md')
+# Blog index is GENERATED (not in git). It must exist before make expands
+# the page lists below, otherwise a fresh checkout (e.g. CI) misses blog.html.
+# NOTE: no pattern rule generates blog.md here — each flavor generates it in
+# its own recipe (build: with hidden; public: without), so the file always
+# matches the flavor being built.
+$(SRC_DIR)/blog.md: FORCE
+	@
 
-# Find files that DON'T have 'hidden: true' in frontmatter (public files)
-PUBLIC_MD_FILES=$(shell find $(SRC_DIR) -name '*.md' -exec sh -c 'head -20 "$$1" | grep -q "^hidden: *true" || echo "$$1"' _ {} \;)
+.PHONY: FORCE
+FORCE:
+
+# blog.html is built via explicit rules below (its .md source is generated in
+# the flavor recipes), not via the wildcard pattern, since blog.md does not
+# exist at parse time on a fresh checkout.
+ALL_MD_FILES=$(shell find $(SRC_DIR) -name '*.md' ! -name 'blog.md')
+PUBLIC_MD_FILES=$(shell find $(SRC_DIR) -name '*.md' ! -name 'blog.md' -exec sh -c 'head -20 "$$1" | grep -q "^hidden: *true" || echo "$$1"' _ {} \;)
 
 # Generate HTML file paths
-ALL_HTML_FILES=$(patsubst $(SRC_DIR)/%.md,$(BUILD_DIR)/%.html,$(ALL_MD_FILES))
-PUBLIC_HTML_FILES=$(patsubst $(SRC_DIR)/%.md,$(DEPLOY_DIR)/%.html,$(PUBLIC_MD_FILES))
+ALL_HTML_FILES=$(patsubst $(SRC_DIR)/%.md,$(BUILD_DIR)/%.html,$(ALL_MD_FILES)) $(BUILD_DIR)/blog.html
+PUBLIC_HTML_FILES=$(patsubst $(SRC_DIR)/%.md,$(DEPLOY_DIR)/%.html,$(PUBLIC_MD_FILES)) $(DEPLOY_DIR)/blog.html
 
 # Asset files (excluding markdown and template)
 ASSET_FILES=$(shell find $(SRC_DIR) -type f ! -name '*.md' ! -name 'template.html' ! -name 'Makefile' ! -name '.*')
 BUILD_ASSETS=$(patsubst $(SRC_DIR)/%,$(BUILD_DIR)/%,$(ASSET_FILES))
 DEPLOY_ASSETS=$(patsubst $(SRC_DIR)/%,$(DEPLOY_DIR)/%,$(ASSET_FILES))
 
-.PHONY: all build public serve serve_public clean help
+.PHONY: all build public serve serve_public clean help FORCE
 
 # Default: build everything including hidden content
 all: build
 
 # Build local version with all content (including hidden)
-build: generate_blog_index_local $(ALL_HTML_FILES) $(BUILD_ASSETS)
-
-# Build only public content for deployment
-public: generate_blog_index_public $(PUBLIC_HTML_FILES) $(DEPLOY_ASSETS)
-
-# Generate blog index with hidden posts
-generate_blog_index_local:
+build:
 	@./scripts/generate_blog_index.sh $(SRC_DIR) $(SRC_DIR)/blog.md true
+	@$(MAKE) $(ALL_HTML_FILES) $(BUILD_ASSETS) $(BUILD_DIR)/blog.html
 
-# Generate blog index without hidden posts
-generate_blog_index_public:
+# Build only public content for deployment.
+# The public flavor regenerates the blog index WITHOUT hidden posts first,
+# then builds all public pages including the (public) blog index page.
+public:
 	@./scripts/generate_blog_index.sh $(SRC_DIR) $(SRC_DIR)/blog.md false
+	@$(MAKE) $(DEPLOY_DIR)/blog.html
+	@$(MAKE) $(PUBLIC_HTML_FILES) $(DEPLOY_ASSETS)
+
+# Explicit rules for the generated blog index page (its .md source is
+# generated first via the blog.md rule above)
+$(BUILD_DIR)/blog.html: $(SRC_DIR)/blog.md $(SRC_DIR)/template.html
+	@mkdir -p $(dir $@)
+	$(PANDOC) $< \
+	  --template=$(SRC_DIR)/template.html \
+	  --standalone \
+	  --math-method=mathml \
+	  --wrap=none \
+	  -f markdown+fenced_divs+tex_math_single_backslash \
+	  -o $@
+
+$(DEPLOY_DIR)/blog.html: $(SRC_DIR)/blog.md $(SRC_DIR)/template.html
+	@mkdir -p $(dir $@)
+	$(PANDOC) $< \
+	  --template=$(SRC_DIR)/template.html \
+	  --standalone \
+	  --math-method=mathml \
+	  --wrap=none \
+	  -f markdown+fenced_divs+tex_math_single_backslash \
+	  -o $@
 
 # Rule to convert Markdown → HTML (local build with hidden files)
 $(BUILD_DIR)/%.html: $(SRC_DIR)/%.md $(SRC_DIR)/template.html
