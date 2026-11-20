@@ -1,10 +1,18 @@
-@font-face {
-  font-family: 'Source Code Pro';
-  src: url('./fonts/SourceCodePro-Regular.woff2') format('woff2'),
-       url('./fonts/SourceCodePro-Regular.woff') format('woff');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
+/* --- Native MathML spacing tweaks (default rendering is cramped) --- */
+math {
+  font-size: 1.08em;
+}
+
+/* operators and relations: a bit of breathing room */
+math mo {
+  padding-inline: 0.09em;
+}
+
+/* display equations: vertical rhythm + centering */
+math[display="block"] {
+  display: block;
+  margin: 1.3em 0;
+  text-align: center;
 }
 
 /* Bio layout */
@@ -105,10 +113,10 @@ ol {
     margin: 1rem 0 1rem 2rem;
 }
 
-/* Use Source Code Pro everywhere monospace is needed */
+/* System monospace stack where a code font is needed */
 pre,
 code {
-  font-family: 'Source Code Pro', 'Courier New', monospace;
+  font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, Consolas, 'Courier New', monospace;
 }
 
 /* Code block containers - card style */

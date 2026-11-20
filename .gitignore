@@ -2,3 +2,5 @@ build/
 deploy/
 .DS_Store
 *~
+# generated - do not commit (public build regenerates it without hidden posts)
+src/blog.md

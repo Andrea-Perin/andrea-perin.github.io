@@ -43,7 +43,7 @@ $(BUILD_DIR)/%.html: $(SRC_DIR)/%.md $(SRC_DIR)/template.html $(SRC_DIR)/style.c
 	$(PANDOC) $< \
 	  --template=$(SRC_DIR)/template.html \
 	  --standalone \
-	  --mathjax \
+	  --math-method=mathml \
 	  -f markdown+fenced_divs \
 	  -o $@
 
@@ -53,7 +53,7 @@ $(DEPLOY_DIR)/%.html: $(SRC_DIR)/%.md $(SRC_DIR)/template.html $(SRC_DIR)/style.
 	$(PANDOC) $< \
 	  --template=$(SRC_DIR)/template.html \
 	  --standalone \
-	  --mathjax \
+	  --math-method=mathml \
 	  -f markdown+fenced_divs \
 	  -o $@
 
